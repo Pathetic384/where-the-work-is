@@ -1,0 +1,1364 @@
+/* app.css - Where The Work Is
+ *
+ * One surface, one ink scale, three data hues. The data hues are the project's
+ * matplotlib palette re-stepped for a dark surface (blue #3987e5, orange
+ * #d95926, aqua #199e70, plus red #e66767 for the negative half of a diverging
+ * pair). Every one of them clears 3:1 against the surface. Nothing else on the
+ * page is allowed to use a data hue as a fill.
+ *
+ * Depth comes from three cheap layers and no filters: a fixed ambient wash, a
+ * fixed grain tile, and a hairline of light along the top edge of every raised
+ * surface. All three are painted once and composited; none of them repaint on
+ * scroll, which matters because this page animates eighteen circles at once.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --surface: #0a0c0f;
+  --surface-1: #101319;
+  --surface-2: #161a21;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.14);
+
+  --ink: #f4f5f7;
+  --ink-2: #a7aeba;
+  --muted: #6e7783;
+
+  --blue: #3987e5;
+  --orange: #d95926;
+  --aqua: #199e70;
+  --red: #e66767;
+
+  /* Windows 11 and macOS both ship a proper display cut of their UI face; the
+     stack falls back through the old static ones, so nothing is downloaded. */
+  --ff-display: "Segoe UI Variable Display", "SF Pro Display", -apple-system,
+                BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue",
+                Arial, sans-serif;
+  --ff: "Segoe UI Variable Text", "SF Pro Text", -apple-system,
+        BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue",
+        Arial, sans-serif;
+  --fm: ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Mono", Menlo,
+        Consolas, monospace;
+
+  --gut: clamp(16px, 5vw, 72px);
+  --maxw: 1280px;
+
+  --r-sm: 10px;
+  --r: 16px;
+  --r-lg: 22px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* one raised-surface recipe, used everywhere */
+  --raise: linear-gradient(180deg, rgba(255, 255, 255, 0.045),
+                                   rgba(255, 255, 255, 0.012));
+  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.07),
+          0 1px 2px rgba(0, 0, 0, 0.4),
+          0 14px 34px rgba(0, 0, 0, 0.3);
+  --lift-hi: inset 0 1px 0 rgba(255, 255, 255, 0.11),
+             0 2px 4px rgba(0, 0, 0, 0.4),
+             0 22px 48px rgba(0, 0, 0, 0.42);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  background: var(--surface);
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--ff);
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Ambient wash and grain. Both are fixed and sit at z-index -1, so they paint
+   above the root background and below every block of content, and neither is
+   touched again while the page scrolls. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body::before {
+  background:
+    radial-gradient(1100px 620px at 18% -8%, rgba(57, 135, 229, 0.11), transparent 62%),
+    radial-gradient(900px 560px at 92% 8%, rgba(217, 89, 38, 0.06), transparent 64%),
+    radial-gradient(1000px 700px at 50% 108%, rgba(25, 158, 112, 0.05), transparent 60%);
+}
+
+/* A 140px tile of fractal noise, rasterised once and repeated. This is the
+   texture that stops a large flat dark area looking like a dead screen. */
+body::after {
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection { background: rgba(57, 135, 229, 0.35); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.26); background-clip: content-box; }
+body.locked { overflow: hidden; }
+a { color: inherit; }
+h1, h2, h3 {
+  font-family: var(--ff-display);
+  line-height: 1.06;
+  margin: 0;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+/* Figures line up in columns wherever they are compared. */
+.stat .v, .kpi .v, .hc-row .v, .exp-row .val, .mono, .hero-count, .aud-row .ch {
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gut); }
+.mono {
+  font-family: var(--fm);
+  font-size: 0.7em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ nav */
+/* A hairline of progress across the top, and a quiet bar that only appears once
+   the opening screen is behind you. */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 52px;
+  padding: 0 var(--gut);
+  background: rgba(10, 12, 15, 0.9);
+  border-bottom: 1px solid var(--line);
+  transform: translateY(-100%);
+  transition: transform 0.45s var(--ease);
+}
+
+.nav.on { transform: none; }
+
+.nav-brand {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-links { margin-left: auto; display: flex; gap: 4px; }
+
+.nav-sfx {
+  margin-left: 6px; display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 9px;
+  border: 1px solid transparent; background: none;
+  color: var(--muted); cursor: pointer;
+}
+.nav-sfx:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.nav-sfx .x { opacity: 0; }
+.nav-sfx[aria-pressed="false"] .w1,
+.nav-sfx[aria-pressed="false"] .w2 { opacity: 0; }
+.nav-sfx[aria-pressed="false"] .x { opacity: 1; }
+
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.nav-links a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+
+.nav-prog {
+  position: absolute;
+  left: 0; bottom: -1px;
+  height: 2px;
+  width: var(--p, 0%);
+  background: linear-gradient(90deg, var(--blue), #6da7ec);
+}
+
+@media (max-width: 620px) {
+  .nav-links a:not(.keep) { display: none; }
+}
+
+/* ------------------------------------------------------------------ hero */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: clamp(26px, 4vh, 44px) 0 44px;
+}
+
+.hero-head { flex: none; }
+
+/* The circles are the headline here. The words are a caption and are sized
+   like one, so the field gets the screen. */
+.hero h1 {
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 800;
+  max-width: 24ch;
+  margin: 8px 0 0;
+}
+
+.hero h1 em { font-style: normal; color: var(--orange); }
+
+.hero-sub {
+  margin-top: 6px;
+  max-width: 66ch;
+  color: var(--ink-2);
+  font-size: clamp(13px, 1.25vw, 14.5px);
+}
+
+.hero-sub b { color: var(--ink); font-weight: 600; }
+
+/* full bleed: the field is not inside .wrap, so it uses the whole window */
+.hero-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: min(64svh, 640px);
+  margin: 6px 0 0;
+}
+
+.hero-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.bub { cursor: pointer; outline: none; transition: opacity 0.35s; }
+.bub.dim { opacity: 0.22; }
+
+.bub-halo { pointer-events: none; }
+
+/* Hover and selection work on fill-opacity, not on a filter: a filter would
+   re-render the circle on every frame it drifts. */
+.bub-c { transition: fill-opacity 0.25s, stroke-width 0.2s; }
+.bub:hover .bub-c { fill-opacity: 1; }
+.bub.sel .bub-c { fill-opacity: 1; stroke: #ffffff; stroke-width: 2.5; stroke-opacity: 1; }
+.bub:focus-visible .bub-c { stroke: var(--ink); stroke-width: 3; stroke-opacity: 1; }
+
+/* Drift and entrance sit on separate groups so the two transforms compose.
+   will-change hands both to the compositor. */
+.bub-float {
+  animation: bubDrift 16s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes bubDrift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(var(--fx, 0px), var(--fy, 0px)); }
+}
+
+/* 🚨 Only circles live in here. Scaling a group that contains an emoji forces a
+   glyph re-raster on every frame, which is what made the entrance stutter. */
+.bub-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bubPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  will-change: transform;
+}
+
+@keyframes bubPop {
+  from { transform: scale(0.55); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Labels never scale. They only fade, which the compositor does for free. */
+.bub-lab {
+  animation: bubFade 0.45s ease-out backwards;
+  pointer-events: none;
+}
+
+@keyframes bubFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.bub-i {
+  dominant-baseline: middle;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.bub-t {
+  fill: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.5);
+  stroke-width: 3.5px;
+}
+
+.hero-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.hero-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lg-size { display: inline-flex; align-items: flex-end; gap: 4px; }
+.lg-size i {
+  display: block;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--line-2);
+}
+.lg-size i:nth-child(1) { width: 7px; height: 7px; }
+.lg-size i:nth-child(2) { width: 12px; height: 12px; }
+.lg-size i:nth-child(3) { width: 18px; height: 18px; }
+
+.lg-ramp { display: inline-flex; border-radius: 5px; overflow: hidden; }
+.lg-ramp i { display: block; width: 11px; height: 9px; }
+
+/* the card that opens when a circle is tapped */
+.hero-card {
+  position: absolute;
+  right: var(--gut);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: min(360px, calc(100% - var(--gut) * 2));
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: rgba(16, 19, 24, 0.97);
+  padding: 20px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.66);
+  animation: cardIn 0.28s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.hero-card[hidden] { display: none; }
+
+/* Three photographs of the industry, stacked in a column to the LEFT of the
+   hero card. Same vertical centring so the two blocks are one unit visually.
+   Hidden on narrow screens where the card already fills the space. */
+.hero-photos {
+  position: absolute;
+  right: calc(var(--gut) + min(360px, calc(100% - var(--gut) * 2)) + 12px);
+  top: 50%; transform: translateY(-50%);
+  z-index: 3;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: cardIn 0.28s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.hero-photos[hidden] { display: none; }
+.hero-photos figure {
+  position: relative;
+  width: clamp(140px, 18vw, 220px);
+  margin: 0;
+}
+.hero-photos img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover; object-position: center 40%;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+.hero-photos figcaption {
+  position: absolute;
+  left: 8px; bottom: 8px;
+  background: rgba(10, 12, 15, 0.78);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  max-width: calc(100% - 16px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+@media (max-width: 900px) { .hero-photos { display: none; } }
+
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translate(14px, -50%); }
+  to { opacity: 1; transform: translate(0, -50%); }
+}
+
+.hero-card .hc-top { display: flex; align-items: center; gap: 10px; }
+.hero-card .hc-ic {
+  font-size: 26px;
+  line-height: 1;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+.hero-card h3 { font-size: 19px; flex: 1; min-width: 0; }
+.hero-card .hc-x {
+  flex: none;
+  width: 26px; height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.hero-card .hc-x:hover { color: var(--ink); border-color: var(--line-2); }
+.hero-card .hc-blurb { margin: 10px 0 0; font-size: 13.5px; color: var(--ink-2); }
+
+.hc-rows { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+.hc-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.hc-row:first-child { border-top: 0; padding-top: 0; }
+.hc-row .l {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hc-row .v { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.hc-row .v.pos { color: var(--aqua); }
+.hc-row .v.neg { color: var(--red); }
+.hc-row .m { font-size: 12.5px; color: var(--ink-2); align-self: center; }
+
+.hc-rank {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  padding: 1px 6px;
+  margin-right: 6px;
+}
+
+.hc-go {
+  margin-top: 16px;
+  width: 100%;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.hc-go:hover { background: var(--surface-2); }
+
+.scroll-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  animation: bob 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, 7px); }
+}
+
+.scroll-hint span { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
+
+@media (max-width: 760px) {
+  .hero { padding-bottom: 52px; }
+  .hero-card {
+    left: var(--gut); right: var(--gut); top: auto; bottom: 46px;
+    width: auto; transform: none; max-height: 70%;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+  .scroll-hint { display: none; }
+}
+
+/* ------------------------------------------------------------------ section */
+.sec { padding: clamp(64px, 10vw, 128px) 0; }
+
+.sec-head { max-width: 62ch; margin-bottom: 36px; }
+
+.sec-head h2 {
+  font-size: clamp(28px, 4.2vw, 48px);
+  margin-top: 12px;
+}
+
+.sec-head p {
+  color: var(--ink-2);
+  margin: 18px 0 0;
+  font-size: clamp(15px, 1.7vw, 18px);
+}
+
+.rule {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(90deg, transparent, var(--line-2) 22%,
+                                     var(--line-2) 78%, transparent);
+}
+
+/* ------------------------------------------------------------------ audience */
+/* Four rows, not four paragraphs. Anyone skimming should find their own row and
+   its chapter numbers in about two seconds. */
+.aud {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--raise), var(--surface-1);
+  box-shadow: var(--lift);
+}
+
+.aud-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.9fr) minmax(0, 1.6fr) auto;
+  gap: 6px 22px;
+  align-items: center;
+  padding: 17px 22px;
+  border-top: 1px solid var(--line);
+  transition: background 0.25s;
+}
+
+.aud-row:first-child { border-top: 0; }
+.aud-row:hover { background: rgba(255, 255, 255, 0.025); }
+
+.aud-row b { font-size: 16px; font-weight: 700; }
+.aud-row span { color: var(--ink-2); font-size: 14.5px; }
+.aud-row .ch {
+  font-family: var(--fm);
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .aud-row { grid-template-columns: 1fr auto; gap: 4px 14px; padding: 14px 16px; }
+  .aud-row span { grid-column: 1 / -1; font-size: 13.5px; }
+}
+
+/* ------------------------------------------------------------------ chapter cards */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+/* Nine chapters divide by three, so the columns are fixed rather than left to
+   auto-fill, which at some widths dropped a single card onto a row of its own. */
+@media (min-width: 680px) {
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1040px) {
+  .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--raise), var(--surface-1);
+  box-shadow: var(--lift);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  overflow: hidden;
+  transition: border-color 0.3s var(--ease), transform 0.3s var(--ease),
+              box-shadow 0.3s var(--ease);
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r);
+  background: radial-gradient(420px 220px at var(--mx, 50%) var(--my, 0%),
+              rgba(57, 135, 229, 0.14), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.card:hover, .card:focus-visible {
+  border-color: var(--line-2);
+  transform: translateY(-4px);
+  box-shadow: var(--lift-hi);
+  outline: none;
+}
+
+.card:hover::after, .card:focus-visible::after { opacity: 1; }
+
+.card .num {
+  position: absolute;
+  top: 10px; right: 18px;
+  font-family: var(--ff-display);
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.05);
+  transition: color 0.3s var(--ease);
+  pointer-events: none;
+}
+
+.card:hover .num { color: rgba(255, 255, 255, 0.1); }
+
+.card h3 { font-size: 20px; letter-spacing: -0.022em; padding-right: 38px; }
+
+.card .teaser { color: var(--ink-2); font-size: 14px; margin: 0; }
+
+.card .who {
+  margin-top: auto;
+  padding-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card .who::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--blue);
+  flex: none;
+}
+
+.card .go {
+  position: absolute;
+  bottom: 18px; right: 20px;
+  color: var(--muted);
+  transition: transform 0.3s var(--ease), color 0.3s var(--ease);
+}
+
+.card:hover .go { transform: translateX(5px); color: var(--blue); }
+
+/* ------------------------------------------------------------------ player */
+.player {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s;
+}
+
+.player.on { opacity: 1; visibility: visible; }
+
+.p-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px var(--gut);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.p-top .num { font-family: var(--fm); font-size: 12px; color: var(--muted); }
+
+.p-top h2 {
+  font-size: clamp(15px, 2.2vw, 20px);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  flex: none;
+  width: 38px; height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.icon-btn:hover:not(:disabled) { border-color: var(--line-2); color: var(--ink); background: var(--surface-2); }
+.icon-btn:disabled { opacity: 0.35; cursor: default; }
+.icon-btn[hidden] { display: none; }
+
+/* The read-aloud toggle carries its own word, because the page no longer has a
+   sentence anywhere explaining that the chapters can read themselves. */
+.p-voice { width: auto; gap: 7px; padding: 0 12px; grid-auto-flow: column; }
+.p-voice-l { font-size: 13px; letter-spacing: 0.01em; }
+.p-voice[aria-pressed="true"] { color: var(--blue); border-color: var(--blue); }
+
+/* Only shown when the browser offers more than one English voice. */
+#credits { font-size: 11px; line-height: 1.55; }
+
+/* Inside one industry: sub-industry photo LEFT, aligned with the industries
+   list above it (same outer column); sub-industry card RIGHT, aligned with
+   the detail card above it. Header sits in the right column above the cards. */
+.bd-head {
+  grid-column: 2;
+  font: 600 clamp(17px, 1.7vw, 21px)/1.25 var(--ff-display);
+  color: var(--ink); letter-spacing: -0.02em;
+  padding-top: 6px;
+}
+.bd-head .sub { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); font-weight: 400; letter-spacing: 0; }
+.bd-img {
+  grid-column: 1;
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: var(--surface-2) center/cover no-repeat;
+  min-height: 190px;
+  box-shadow: var(--lift);
+}
+.bd-img .cap {
+  position: absolute; left: 12px; bottom: 12px;
+  background: rgba(10, 12, 15, 0.78);
+  color: #fff;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 5px 10px;
+  border-radius: 6px;
+  max-width: calc(100% - 24px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.bdc {
+  grid-column: 2;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface-1);
+}
+.bdc.me { border-color: color-mix(in srgb, var(--blue) 45%, transparent); background: color-mix(in srgb, var(--blue) 7%, var(--surface-1)); }
+.bdc-h { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; }
+.bdc-n { font: 600 15px/1.3 var(--ff-display); color: var(--ink); min-width: 0; }
+.bdc-n b { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--blue); font-weight: 700; }
+.bdc-w { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bdc-blurb { margin: 6px 0 10px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.bdc-bar { height: 5px; margin: 9px 0 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.bdc-bar i { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+.bdc-k { margin-bottom: 10px; }
+.bdc-k .kpi { padding: 8px 10px; }
+.bdc-k .kpi .v { font-size: 15px; }
+.bdc-s { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bdc-s .spark-box { margin: 0; }
+@media (max-width: 720px) { .bdc-s { grid-template-columns: 1fr; } }
+
+#credits { font-size: 11px; line-height: 1.55; }
+.bd-g.pos { color: var(--aqua); }
+.bd-g.neg { color: var(--red); }
+.bd-f { margin-top: 12px; font-size: 12px; color: var(--muted); }
+@media (max-width: 620px) {
+  .bd-k, .bd-row { grid-template-columns: minmax(0, 1fr) 52px 44px; }
+  .bd-bar, .bd-j { display: none; }
+}
+
+/* The industry portrait: a real photograph per industry named in the beat.
+   Several industries means several images, all the same size, in one row. */
+/* 🚨 The photographs live in the SIDE PANEL, one per row, and the panel
+   scrolls. Four earlier placements and what each got wrong:
+     side panel, side by side  ->  100px wide each: a thumbnail of a thumbnail
+     side panel, stacked, tall ->  legible, but it pushed the prose off screen
+                                   because the panel did not really scroll
+     strip under the player    ->  `height: 14vh` + `width: 100%` gave a 4:1
+                                   letterbox slit: you could not see the person
+     strip, sized by height    ->  legible, but beside the story rather than
+                                   with it, and it cost the chart 190px
+   This is the fifth and it is what was asked for: keep them beside the text,
+   full width of the column, and let the column scroll. `.p-side` already has
+   `overflow-y: auto` and `justify-content: safe center`, so as soon as the
+   content is taller than the panel it aligns to the top and every part of it
+   is reachable. */
+.p-art { display: grid; gap: 12px; }
+.p-art[hidden] { display: none; }
+.p-art figure {
+  margin: 0; min-width: 0; position: relative;
+  animation: artIn 0.6s cubic-bezier(0.2, 0.8, 0.25, 1) backwards;
+}
+.p-art img {
+  display: block; width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: center 38%;   /* people are in the upper half of a frame */
+  border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.p-art figcaption {
+  position: absolute; left: 10px; bottom: 10px;
+  background: rgba(10, 12, 15, 0.78);
+  color: #fff;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  max-width: calc(100% - 20px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.p-art figcaption .p-art-sub {
+  font-weight: 500; color: rgba(255, 255, 255, 0.82);
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+}
+@keyframes artIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } }
+@media (prefers-reduced-motion: reduce) { .p-art figure { animation: none; } }
+
+/* The panel now scrolls on purpose, so say so: a thicker rail than the page's
+   hairline one, and a hint that there is more under the fold. */
+.p-side::-webkit-scrollbar { width: 10px; }
+.p-side::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16); border-radius: 6px;
+  border: 3px solid transparent; background-clip: content-box;
+}
+.p-side::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); background-clip: content-box; }
+
+/* Auto: the story plays itself, each step waiting for the narration to end. */
+.p-auto-l { font-size: 12px; letter-spacing: 0.01em; }
+.p-auto .i-pause { display: none; }
+.p-auto[aria-pressed="true"] { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+.p-auto[aria-pressed="true"] .i-play { display: none; }
+.p-auto[aria-pressed="true"] .i-pause { display: inline; }
+@media (max-width: 620px) { .p-auto-l { display: none; } }
+
+/* The closing chapter is one wide card under the grid of nine, and it is meant
+   to be the thing you notice on the page. */
+.finale { margin-top: 22px; }
+.finale .card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 22px;
+  align-items: center;
+  padding: 30px 28px;
+  border-color: color-mix(in srgb, var(--blue) 34%, transparent);
+  background:
+    radial-gradient(120% 180% at 0% 0%, color-mix(in srgb, var(--blue) 13%, transparent), transparent 62%),
+    var(--surface-1);
+}
+.finale .card::after { display: none; }
+.finale .card + .card { margin-top: 16px; }
+/* Only the very last one wears the glow: two equally loud cards is neither. */
+.finale .card:not(:last-child) {
+  border-color: var(--line);
+  background: var(--surface-1);
+}
+.finale .card:not(:last-child) .num { color: var(--muted); }
+.finale .card .num {
+  position: static;
+  font: 700 clamp(44px, 7vw, 76px)/1 var(--ff-display);
+  color: color-mix(in srgb, var(--blue) 62%, transparent);
+  grid-row: 1 / span 3;
+  letter-spacing: -0.04em;
+}
+.finale .card h3 { font-size: clamp(21px, 2.6vw, 30px); padding-right: 46px; margin: 0; }
+.finale .card .teaser { margin: 6px 0 0; max-width: 62ch; }
+.finale .card .who { margin-top: 12px; }
+.finale .card .go { color: var(--blue); }
+@media (max-width: 560px) {
+  .finale .card { grid-template-columns: 1fr; gap: 2px; padding: 24px 20px; }
+  .finale .card .num { grid-row: auto; }
+}
+.p-voice .wave1, .p-voice .wave2 { opacity: 0.35; }
+.p-voice[aria-pressed="true"] .wave1, .p-voice[aria-pressed="true"] .wave2 { opacity: 1; }
+.p-voice.speaking .wave1 { animation: wv 1.3s ease-in-out infinite; }
+.p-voice.speaking .wave2 { animation: wv 1.3s ease-in-out 0.18s infinite; }
+
+@keyframes wv {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.p-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr minmax(330px, 30%);
+  min-height: 0;
+}
+
+.p-chart {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;          /* a stale scene must never spill into the prose */
+  padding: 18px 10px 18px var(--gut);
+}
+
+.scene-host { position: absolute; inset: 18px 10px 18px var(--gut); }
+
+/* A chapter whose chart is taller than the pane scrolls inside it. The host
+   stops being absolutely positioned so its explicit height drives the scroll
+   height; everything else about the Scene is unchanged. */
+.p-chart.scrolly { overflow-y: auto; overflow-x: hidden; cursor: grab; }
+.p-chart.scrolly.grabbing { cursor: grabbing; }
+.p-chart.scrolly .scene-host { position: relative; inset: auto; width: 100%; }
+
+.scene { display: block; overflow: visible; }
+
+.scene .tx {
+  font-family: var(--ff);
+  pointer-events: none;
+  paint-order: stroke;
+}
+
+.scene .halo {
+  paint-order: stroke;
+  stroke: #0d0f12;
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+
+.scene .w6 { font-weight: 600; }
+.scene .w7 { font-weight: 700; }
+.scene .quad { letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; }
+
+.scene rect, .scene circle { transition: none; }
+
+/* With one short line per beat instead of a paragraph, the panel had far more
+   room than content, so the block is centred against the chart rather than
+   stranded at the top of an empty column. */
+.p-side {
+  border-left: 1px solid var(--line);
+  padding: clamp(16px, 3vh, 26px) var(--gut) clamp(16px, 3vh, 26px) 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* 🚨 `safe` matters. A centred flex column that overflows is clipped at BOTH
+     ends and the top is unreachable even with overflow:auto, which is how a
+     content-heavy beat came out as "Three rules. Job type," and nothing else.
+     `safe center` falls back to flex-start the moment it does not fit. */
+  justify-content: center;
+  justify-content: safe center;
+  gap: clamp(10px, 2.2vh, 18px);
+}
+
+.p-side .beat-n { font-family: var(--fm); font-size: 11px; color: var(--muted); letter-spacing: 0.14em; }
+
+/* One short line per beat, so it is set like a headline rather than a
+   paragraph. The detail is in the voice, not here. */
+.p-text {
+  font-family: var(--ff-display);
+  font-size: clamp(18px, min(2vw, 3.2vh), 27px);
+  line-height: 1.26;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.p-stats { display: flex; flex-direction: column; gap: 10px; }
+
+/* On a short screen the two stat cards sit side by side instead of stacked:
+   it is the cheapest 100px on the panel, and two figures read fine in a row. */
+@media (max-height: 820px) and (min-width: 760px) {
+  .p-stats { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .p-stats .stat:only-child { grid-column: 1 / -1; }
+}
+
+.stat {
+  border-left: 3px solid var(--blue);
+  padding: clamp(6px, 1.4vh, 10px) 0 clamp(6px, 1.4vh, 10px) 14px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 70%);
+}
+
+.stat.orange { border-color: var(--orange); }
+.stat.aqua { border-color: var(--aqua); }
+.stat.red { border-color: var(--red); }
+
+.stat .l { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+/* ⚠️ Sized off height as well as width. Two stat cards at the old size were
+   203px of a 590px panel on a 720px laptop. */
+.stat .v { font-size: clamp(20px, min(3vw, 3.4vh), 30px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.stat .n { font-size: 12.5px; color: var(--ink-2); }
+
+.p-answer {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: clamp(10px, 1.8vh, 18px);
+  background: var(--surface-1);
+}
+
+.p-answer .l { color: var(--muted); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+/* ⚠️ Height-aware, like the stat cards: the pivot beats carry the answer AND
+   the stats, and on a 720px laptop the pair was the last thing still
+   overflowing the side panel. */
+.p-answer p { margin: 6px 0 0; font-size: clamp(13px, 1.95vh, 16px); line-height: 1.4; }
+
+.p-bot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px var(--gut);
+  border-top: 1px solid var(--line);
+}
+
+.segs { display: flex; gap: 6px; flex: 1; }
+
+.seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.seg.done { background: var(--line-2); }
+.seg.now { background: var(--blue); }
+
+.p-hint { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+/* tooltip shared by every chart */
+.tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 250px;
+  overflow: hidden;
+  opacity: 0;
+  left: 0;
+  top: 0;
+  transition: opacity 0.14s;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+
+.tip.on { opacity: 1; }
+.tip b { display: block; font-size: 14px; margin-bottom: 4px; }
+.tip .row { display: flex; justify-content: space-between; gap: 16px; color: var(--ink-2); }
+.tip .row b { display: inline; font-size: 13px; color: var(--ink); margin: 0; }
+
+/* ------------------------------------------------------------------ explorer */
+.exp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.seg-ctl {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+.seg-ctl button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  padding: 9px 16px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.seg-ctl button + button { border-left: 1px solid var(--line); }
+.seg-ctl button:hover { color: var(--ink); }
+.seg-ctl button[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.search {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+.search::placeholder { color: var(--muted); }
+.search:focus {
+  outline: none;
+  border-color: rgba(57, 135, 229, 0.6);
+  box-shadow: 0 0 0 3px rgba(57, 135, 229, 0.15);
+}
+
+.exp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.exp-list {
+  grid-column: 1;
+  grid-row: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--raise), var(--surface-1);
+  box-shadow: var(--lift);
+  max-height: 640px;
+  overflow-y: auto;
+}
+
+.exp-detail { grid-column: 2; grid-row: 1; }
+
+/* Breakdown spans the full grid width and uses subgrid so its internal columns
+   line up perfectly with the outer 2-col grid: sub-industry image left (same
+   column as the industries list), sub-industry card right (same column as the
+   detail card). */
+#exp-breakdown {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  gap: 16px 18px;
+}
+#exp-breakdown:empty { display: none; }
+
+.exp-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 12px 18px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.16s;
+}
+
+.exp-row:last-child { border-bottom: 0; }
+.exp-row:hover { background: var(--surface-2); }
+.exp-row[aria-selected="true"] { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--blue); }
+@media (max-width: 620px) {
+  .exp-row { grid-template-columns: 1fr auto; }
+  .exp-row .val:last-child { display: none; }
+}
+
+.exp-row .nm { font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-row .sub { font-size: 12px; color: var(--muted); }
+.exp-row .val { font-family: var(--fm); font-size: 13px; color: var(--ink-2); text-align: right; }
+.exp-row .val.pos { color: var(--aqua); }
+.exp-row .val.neg { color: var(--red); }
+
+.exp-detail {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--raise), var(--surface-1);
+  box-shadow: var(--lift);
+  padding: 28px;
+}
+
+.exp-detail h3 { font-size: 25px; margin-bottom: 4px; }
+.exp-detail .kind { color: var(--muted); font-size: 13px; }
+.exp-detail .blurb { color: var(--ink-2); font-size: 15px; margin: 16px 0 0; }
+
+/* Flex, not grid: five tiles in a three-wide grid leave a hole in the last row,
+   and the hole shows as an empty box. Flexing lets the last row stretch. */
+.kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  margin: 22px 0 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.kpi { flex: 1 1 108px; background: var(--surface-2); padding: 14px 16px; }
+.kpi .l { font-size: 11.5px; color: var(--muted); letter-spacing: 0.04em; }
+.kpi .v { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.kpi .v.pos { color: var(--aqua); }
+.kpi .v.neg { color: var(--red); }
+
+.spark-box { margin-top: 22px; }
+.spark-box .cap { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.spark-box svg { display: block; width: 100%; height: 92px; }
+
+/* Highlighted advice card. Sits between the KPI grid and the sparklines so
+   the reader gets the interpretation before the trend lines, and is coloured
+   by the recommendation: aqua for a target worth aiming at, blue for a
+   qualifier-heavy target, orange for a stepping stone, red for one to think
+   twice about. */
+.verdict {
+  margin: 18px 0 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--advice) 45%, transparent);
+  background: color-mix(in srgb, var(--advice) 12%, var(--surface-1));
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.verdict::before {
+  content: attr(data-verdict-label);
+  display: block;
+  font: 700 10.5px/1 var(--fm);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--advice);
+  margin-bottom: 6px;
+}
+.verdict b { color: var(--ink); }
+.verdict.v-aqua   { --advice: var(--aqua);   }
+.verdict.v-blue   { --advice: var(--blue);   }
+.verdict.v-orange { --advice: var(--orange); }
+.verdict.v-red    { --advice: var(--red);    }
+.bdc .verdict { margin: 12px 0 12px; padding: 12px 14px; font-size: 13px; }
+
+.tag {
+  display: inline-block;
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 3px 11px;
+  color: var(--ink-2);
+  margin: 12px 8px 0 0;
+}
+
+/* ------------------------------------------------------------------ limits */
+.limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 16px; }
+
+.limit {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 22px 22px 22px 25px;
+  background: var(--raise), var(--surface-1);
+  box-shadow: var(--lift);
+  overflow: hidden;
+}
+
+.limit::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--orange);
+}
+
+.limit h3 { font-size: 17px; margin-bottom: 8px; }
+.limit p { margin: 0; color: var(--ink-2); font-size: 15px; }
+
+/* ------------------------------------------------------------------ footer */
+.foot {
+  border-top: 1px solid var(--line);
+  padding: 44px 0 64px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.foot .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 26px; }
+.foot b { color: var(--ink-2); font-weight: 600; display: block; margin-bottom: 6px; }
+
+/* ------------------------------------------------------------------ reveal */
+.rv {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.75s var(--ease), transform 0.75s var(--ease);
+}
+.rv.in { opacity: 1; transform: none; }
+
+/* ------------------------------------------------------------------ narrow */
+@media (max-width: 620px) {
+  .p-voice-l { display: none; }
+  .p-voice { width: 38px; padding: 0; }
+}
+
+@media (max-width: 900px) {
+  .p-body { grid-template-columns: 1fr; grid-template-rows: minmax(210px, 42vh) 1fr; }
+  .p-side { border-left: 0; border-top: 1px solid var(--line); padding: 20px var(--gut) 20px; }
+  .p-chart { padding: 10px 6px 10px 6px; }
+  .scene-host { inset: 10px 6px 10px 6px; }
+  .exp-grid { grid-template-columns: 1fr; }
+  .exp-list { max-height: 330px; grid-column: 1; grid-row: auto; }
+  .exp-detail { grid-column: 1; grid-row: auto; }
+  #exp-breakdown { grid-column: 1; grid-template-columns: 1fr; }
+  .bd-head, .bd-img, .bdc { grid-column: 1; }
+  .bd-img { min-height: 200px; }
+  .p-hint { display: none; }
+  .p-answer { margin-top: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+  .rv { opacity: 1; transform: none; }
+}

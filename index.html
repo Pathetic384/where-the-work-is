@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where The Work Is</title>
+<meta name="description" content="An interactive guide to the Australian job market: which industries are hiring, what they pay after inflation, and where the two do not line up. Built on ABS 8155.0, 2006-07 to 2024-25.">
+<link rel="stylesheet" href="assets/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d0f12'/><path d='M18 74 L40 52 L58 62 L82 26' stroke='%233987e5' stroke-width='10' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+</head>
+<body>
+
+<nav class="nav" aria-label="Sections">
+  <a class="nav-brand" href="#top">Where the work is</a>
+  <div class="nav-links">
+    <a href="#chapters" class="keep">Chapters</a>
+    <a href="#explore" class="keep">Explore</a>
+    <a href="#limits">Caveats</a>
+  </div>
+  <button class="nav-sfx" type="button" aria-pressed="true" aria-label="Sound"
+          title="Sound: the bubbles, and each chart as it draws itself">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/>
+      <path class="w1" d="M15.5 8.5a5 5 0 0 1 0 7"/>
+      <path class="w2" d="M18.5 5.5a9 9 0 0 1 0 13"/>
+      <line class="x" x1="16" y1="8" x2="22" y2="16"/>
+    </svg>
+  </button>
+  <div class="nav-prog" aria-hidden="true"></div>
+</nav>
+
+<!-- ===================================================== hero -->
+<header class="hero" id="top">
+  <div class="wrap hero-head">
+    <div class="mono">ABS Australian Industry &middot; 19 years to 2024-25</div>
+    <h1>Every industry in <em>Australia</em>.</h1>
+    <p class="hero-sub">
+      Size is how many people work there, colour is pay against the national average.
+      <b>Tap a circle.</b>
+    </p>
+  </div>
+
+  <div class="hero-stage" id="hero-stage" aria-label="Australian industries as bubbles"></div>
+
+  <div class="wrap hero-foot">
+    <div class="hero-legend">
+      <span class="lg-size" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>people employed</span>
+      <span class="lg-ramp" id="lg-ramp" aria-hidden="true"></span>
+      <span>pay: below average &rarr; above</span>
+    </div>
+    <div class="mono hero-count">
+      18 industries &middot; <span data-fig="economy.headline.jobsLast" data-fmt="num"></span>k jobs
+    </div>
+  </div>
+
+  <aside class="hero-photos" id="hero-photos" hidden></aside>
+  <aside class="hero-card" id="hero-card" hidden></aside>
+  <div class="scroll-hint"><span>Scroll</span><span aria-hidden="true">&darr;</span></div>
+</header>
+
+<hr class="rule">
+
+<!-- ===================================================== audience -->
+<section class="sec" id="who">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="mono">Who this is for</div>
+      <h2>Find your row. It tells you where to start.</h2>
+    </div>
+    <div class="aud">
+      <div class="aud-row rv">
+        <b>Choosing a first career</b>
+        <span>Pay is not the whole picture, and chapter 01 shows why.</span>
+        <span class="ch">01 &middot; 04 &middot; 06</span>
+      </div>
+      <div class="aud-row rv">
+        <b>Arriving from overseas</b>
+        <span>How this economy is actually built, and where the work sits.</span>
+        <span class="ch">02 &middot; 03 &middot; 07</span>
+      </div>
+      <div class="aud-row rv">
+        <b>Changing direction</b>
+        <span>Whether an industry is really growing, and what the job types inside it pay.</span>
+        <span class="ch">05 &middot; 08 &middot; 10</span>
+      </div>
+      <div class="aud-row rv">
+        <b>Advising someone else</b>
+        <span>Evidence you can cite, and the gaps stated plainly.</span>
+        <span class="ch">all eleven</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== chapters -->
+<section class="sec" id="chapters">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="mono">The story &middot; eleven chapters</div>
+      <h2>Eleven questions. The charts answer them.</h2>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="finale" id="finale"></div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ===================================================== explorer -->
+<section class="sec" id="explore">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="mono">Your turn</div>
+      <h2>Look up your own industry.</h2>
+    </div>
+
+    <div class="exp-controls rv">
+      <div class="seg-ctl" role="group" aria-label="Level of detail">
+        <button type="button" data-level="division" aria-pressed="true">Industries</button>
+        <button type="button" data-level="subdivision" aria-pressed="false">Job types</button>
+      </div>
+      <div class="seg-ctl" role="group" aria-label="Sort by">
+        <button type="button" data-sort="jobs" aria-pressed="true">Most jobs</button>
+        <button type="button" data-sort="wage" aria-pressed="false">Best paid</button>
+        <button type="button" data-sort="jobs5y" aria-pressed="false">Fastest hiring</button>
+      </div>
+      <input class="search" id="exp-search" type="search" placeholder="Search, for example: nursing, software, mining">
+    </div>
+
+    <div class="exp-grid">
+      <div class="exp-list rv" id="exp-list" role="listbox" aria-label="Industries"></div>
+      <div class="exp-detail rv" id="exp-detail"></div>
+      <div id="exp-breakdown"></div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ===================================================== limits -->
+<section class="sec" id="limits">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="mono">Before you decide anything</div>
+      <h2>What this data does not show.</h2>
+    </div>
+    <div class="limits">
+      <div class="limit rv">
+        <h3>Banking and insurance are missing</h3>
+        <p>
+          Only the auxiliary part of finance is collected, about 181 thousand jobs. Banks, insurers
+          and investment funds are not in this data at all. If finance is your target, nothing here
+          describes it.
+        </p>
+      </div>
+      <div class="limit rv">
+        <h3>Public hospitals and public schools are excluded</h3>
+        <p>
+          Education, health care, and public administration appear here in their private-sector form
+          only. The real workforces in those three are far larger than the numbers on this site.
+        </p>
+      </div>
+      <div class="limit rv">
+        <h3>Employment is a headcount on one day</h3>
+        <p>
+          Everyone counted on 30 June counts as one person, whether they work five hours a week or
+          fifty. It is not full-time equivalent, and it says nothing about hours, security or whether
+          a job is casual.
+        </p>
+      </div>
+      <div class="limit rv">
+        <h3>Some series have holes in them</h3>
+        <p>
+          <span data-fig="meta.gappedSeries" data-fmt="num"></span> of
+          <span data-fig="meta.totalSeries" data-fmt="num"></span> series have years suppressed by the
+          ABS for confidentiality, almost all of them in profit and purchase figures for small job
+          types. Nothing on this site draws a trend line across a gap.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== footer -->
+<footer class="foot">
+  <div class="wrap cols">
+    <div><b>Source</b><span data-fig="meta.source"></span>, released
+      <span data-fig="meta.released"></span>. Inflation adjusted with
+      <span data-fig="meta.cpiSource"></span>.</div>
+    <div><b>Method</b>All dollars in <span data-fig="meta.baseYear"></span> prices. Correlations are
+      Spearman rank, across the 18 divisions the ABS measures in full.</div>
+    <div><b>Built by</b>Data Driven Storytelling Studio, UTS. Every figure is generated from the
+      processed ABS files, never typed in.</div>
+    <div><b>Photographs</b><span id="credits"></span></div>
+  </div>
+</footer>
+
+<!-- ===================================================== the player -->
+<div class="player" aria-hidden="true" role="dialog" aria-label="Story chapter">
+  <div class="p-top">
+    <span class="num"></span>
+    <h2></h2>
+    <button class="icon-btn p-voice" type="button" aria-pressed="false" hidden
+            aria-label="Read the story aloud" title="Read the story aloud">
+      <span class="p-voice-l">Listen</span>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" stroke="none"/>
+        <path class="wave1" d="M15.5 8.5a5 5 0 0 1 0 7"/>
+        <path class="wave2" d="M18.5 5.5a9 9 0 0 1 0 13"/>
+      </svg>
+    </button>
+    <button class="icon-btn p-auto" type="button" aria-pressed="false" hidden
+            aria-label="Play the story by itself"
+            title="Play by itself: each step waits for the narration to finish">
+      <span class="p-auto-l">Auto</span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon class="i-play" points="7 4 20 12 7 20 7 4" fill="currentColor" stroke="none"/>
+        <g class="i-pause"><rect x="7" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/></g>
+      </svg>
+    </button>
+    <button class="icon-btn p-close" type="button" aria-label="Close and go back">&times;</button>
+  </div>
+  <div class="p-body">
+    <div class="p-chart"><div class="scene-host"></div></div>
+    <aside class="p-side">
+      <div class="beat-n"></div>
+      <p class="p-text"></p>
+      <div class="p-stats"></div>
+      <div class="p-art" hidden></div>
+      <div class="p-answer" style="display:none">
+        <div class="l">The answer</div>
+        <p></p>
+      </div>
+    </aside>
+  </div>
+  <div class="p-bot">
+    <button class="icon-btn p-prev" type="button" aria-label="Previous step">&larr;</button>
+    <div class="segs"></div>
+    <span class="p-hint"></span>
+    <button class="icon-btn p-next" type="button" aria-label="Next step">&rarr;</button>
+  </div>
+</div>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/audio.js"></script>
+<script src="assets/js/sfx.js"></script>
+<script src="assets/js/viz.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/hero.js"></script>
+<script src="assets/js/chapters.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1222,10 +1222,15 @@
       if (SAY.supported && window.speechSynthesis.getVoices().length === 0) {
         window.speechSynthesis.onvoiceschanged = function () { SAY.voice = pickVoice(); };
       }
+      /* Default ON: the site is meant to be listened to. Only stays off if
+         the reader explicitly turned it off in a previous visit. Autoplay is
+         allowed as soon as the reader has interacted with the page — opening
+         a chapter is itself a click, so the first beat's clip plays without
+         needing a second gesture. */
       var saved = null;
       try { saved = localStorage.getItem('wtwi.voice'); } catch (e) { saved = null; }
-      if (saved === '1') vb.setAttribute('aria-pressed', 'true');
-      SAY.on = saved === '1';
+      SAY.on = saved !== '0';
+      vb.setAttribute('aria-pressed', SAY.on ? 'true' : 'false');
       vb.addEventListener('click', function () { setVoice(!SAY.on); });
       window.addEventListener('beforeunload', stopSpeaking);
     }

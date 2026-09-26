@@ -33,7 +33,7 @@
 <!-- ===================================================== hero -->
 <header class="hero" id="top">
   <div class="wrap hero-head">
-    <div class="mono">ABS Australian Industry &middot; 19 years to 2024-25</div>
+    <div class="mono hero-eyebrow">ABS Australian Industry &middot; 19 years to 2024-25</div>
     <h1>Every industry in <em>Australia</em>.</h1>
     <p class="hero-sub">
       Size is how many people work there, colour is pay against the national average.
@@ -69,23 +69,23 @@
       <div class="mono">Who this is for</div>
       <h2>Find your row. It tells you where to start.</h2>
     </div>
-    <div class="aud">
-      <div class="aud-row rv">
+    <div class="aud" role="list">
+      <div class="aud-row rv" role="listitem">
         <b>Choosing a first career</b>
         <span>Pay is not the whole picture, and chapter 01 shows why.</span>
         <span class="ch">01 &middot; 04 &middot; 06</span>
       </div>
-      <div class="aud-row rv">
+      <div class="aud-row rv" role="listitem">
         <b>Arriving from overseas</b>
         <span>How this economy is actually built, and where the work sits.</span>
         <span class="ch">02 &middot; 03 &middot; 07</span>
       </div>
-      <div class="aud-row rv">
+      <div class="aud-row rv" role="listitem">
         <b>Changing direction</b>
         <span>Whether an industry is really growing, and what the job types inside it pay.</span>
         <span class="ch">05 &middot; 08 &middot; 10</span>
       </div>
-      <div class="aud-row rv">
+      <div class="aud-row rv" role="listitem">
         <b>Advising someone else</b>
         <span>Evidence you can cite, and the gaps stated plainly.</span>
         <span class="ch">all eleven</span>
@@ -126,7 +126,8 @@
         <button type="button" data-sort="wage" aria-pressed="false">Best paid</button>
         <button type="button" data-sort="jobs5y" aria-pressed="false">Fastest hiring</button>
       </div>
-      <input class="search" id="exp-search" type="search" placeholder="Search, for example: nursing, software, mining">
+      <input class="search" id="exp-search" type="search" aria-label="Search industries and job types"
+             placeholder="Search, for example: nursing, software, mining">
     </div>
 
     <div class="exp-grid">
@@ -190,7 +191,9 @@
       <span data-fig="meta.released"></span>. Inflation adjusted with
       <span data-fig="meta.cpiSource"></span>.</div>
     <div><b>Method</b>All dollars in <span data-fig="meta.baseYear"></span> prices. Correlations are
-      Spearman rank, across the 18 divisions the ABS measures in full.</div>
+      Spearman rank, across the 18 divisions the ABS measures in full. The advice for each industry
+      and job type in the explorer was written with an AI model (Claude) from these figures and
+      checked against them.</div>
     <div><b>Built by</b>Data Driven Storytelling Studio, UTS. Every figure is generated from the
       processed ABS files, never typed in.</div>
     <div><b>Photographs</b><span id="credits"></span></div>

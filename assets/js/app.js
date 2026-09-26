@@ -347,6 +347,7 @@
     var b = $('.p-voice');
     if (b) b.setAttribute('aria-pressed', SAY.on ? 'true' : 'false');
     try { localStorage.setItem('wtwi.voice', SAY.on ? '1' : '0'); } catch (e) { /* private mode */ }
+    if (window.SFX) window.SFX.duck(SAY.on && P.open);
     if (!SAY.on) { stopSpeaking(); if (P.auto) setAuto(false); return; }
     if (P.open) sayBeat(chapters[P.ci], chapters[P.ci].beats[P.bi], P.bi);
   }
@@ -496,14 +497,16 @@
   function buildHero() {
     var stage = $('#hero-stage');
     if (!stage || !global.HERO) return;
-    heroView = new global.HERO.Hero(stage, D, heroCard);
-    // the key is generated from the ramp itself, so it can never drift from it
+    // The key is generated from the ramp itself, so it can never drift from it.
+    // It goes in BEFORE the field measures itself: the hero is one screen tall,
+    // so a footer that grows afterwards would leave the field too tall for it.
     var key = $('#lg-ramp');
     if (key) {
       key.innerHTML = global.HERO.RAMP.map(function (c) {
         return '<i style="background:' + c + '"></i>';
       }).join('');
     }
+    heroView = new global.HERO.Hero(stage, D, heroCard);
   }
   /* Which voices exist is entirely up to the reader's browser and operating
      system. Edge publishes a few hundred neural ones; a bare Windows install
@@ -521,8 +524,7 @@
       sfx.addEventListener('click', function () {
         var on = !window.SFX.enabled();
         window.SFX.set(on);
-        sfx.setAttribute('aria-pressed', on ? 'true' : 'false');
-        if (on) window.SFX.tap();
+        if (on) window.SFX.ui('toggle');
       });
     } else if (sfx) {
       sfx.hidden = true;
@@ -615,7 +617,7 @@
           P.rt = setTimeout(function () {
             if (P.scene.w !== P.host.clientWidth || P.scene.h !== P.host.clientHeight) {
               P.scene.measure();
-              paint(true);
+              paint(true, true);
             }
           }, 120);
         });
@@ -633,6 +635,7 @@
       document.body.classList.add('locked');
       el.classList.add('on');
       el.setAttribute('aria-hidden', 'false');
+      if (window.SFX) { window.SFX.duck(SAY.on); window.SFX.bedOpen(); }
     }
     var c = chapters[ci];
     $('.p-top .num').textContent = c.num;
@@ -650,7 +653,8 @@
 
   function close() {
     if (!P.open) return;
-    if (window.SFX) window.SFX.close();
+    if (window.SFX) { window.SFX.close(); window.SFX.duck(false); window.SFX.bedClose(); }
+    clearTimeout(P.sayT);
     P.open = false;
     var el = $('.player');
     el.classList.remove('on');
@@ -672,10 +676,13 @@
     var n = P.bi + dir;
     if (n < 0) {
       if (P.ci === 0) return;
+      if (window.SFX) { window.SFX.turn(-1); window.SFX.whoosh(-1); }
       P.ci--; open(P.ci, chapters[P.ci].beats.length - 1); return;
     }
+    if (window.SFX && n < c.beats.length) { window.SFX.turn(dir); window.SFX.whoosh(dir); }
     if (n >= c.beats.length) {
       if (P.ci >= chapters.length - 1) { close(); return; }
+      if (window.SFX) { window.SFX.turn(dir); window.SFX.whoosh(dir); }
       open(P.ci + 1, 0); return;
     }
     P.bi = n;
@@ -759,7 +766,122 @@
     return found;
   }
 
-  function paint(first) {
+  /* What a chart sounds like is what it draws. A line's pitch rides its own
+     points for as long as it takes to draw; every bar or dot that lands or
+     moves strikes one mallet note pitched by its value. Only marks that are new
+     or have moved make a sound, so a beat that changes nothing in the picture
+     changes nothing in the ear. Runs BEFORE render, while the scene still holds
+     the old positions to compare against. */
+
+  /* The story's sub-audio for one beat, layered under the narration (the mix
+     and the sounds live in sfx.js):
+       bed          the chord follows the beat: its own mood, else the
+                    chapter's, and the answer beat swells into D major
+       foley        the industry the beat is about, from the same codes the
+                    photographs use, else from words in the line itself
+       punctuation  a thump and shimmer as the stat cards or photographs land,
+                    or a coin shimmer when the beat is about money */
+  var FOLEY_OF = { B: 'heavy', C: 'heavy', D: 'heavy', E: 'heavy', I: 'heavy',
+                   Q: 'care', M: 'digital', J: 'digital' };
+  var MONEY = /\$|\bpay\b|\bpaid\b|wage|salar|inflation|price|earn|income/i;
+  function foleyFor(beat) {
+    if (beat.foley) return beat.foley;
+    var codes = beat.portraits || (beat.portrait ? [beat.portrait] : detectPortraits(beat.text));
+    for (var i = 0; i < codes.length; i++) {
+      var f = FOLEY_OF[String(codes[i]).charAt(0)];
+      if (f) return f;
+    }
+    var t = String(beat.text || '');
+    if (/mining|construction|manufactur|factor|electric/i.test(t)) return 'heavy';
+    if (/health|hospital|nurs|aged care|disabilit/i.test(t)) return 'care';
+    if (/software|computer|digital|\bdata\b|professional/i.test(t)) return 'digital';
+    return null;
+  }
+  function subAudio(c, beat, nPics) {
+    var S = window.SFX;
+    S.bedMood(beat.pivot ? 'answer' : (beat.mood || c.bed || 'neutral'), !!beat.pivot);
+    var fam = foleyFor(beat);
+    if (fam) S.foley(fam, 0.3);
+    var nStats = (beat.stats || []).length;
+    if (nStats || nPics) S.punctuate(0.22, nStats > 0 && MONEY.test(beat.text));
+  }
+
+  var GEOM = ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'x1', 'y1', 'x2', 'y2'];
+  function sonify(marks, dur, stagger) {
+    var S = window.SFX;
+    if (!S || !S.enabled()) return;
+    var prev = P.scene.marks, W = P.scene.w || 1, H = P.scene.h || 1;
+    function moved(m) {
+      var o = prev[m.key];
+      if (!o) return true;
+      return GEOM.some(function (a) {
+        return m[a] != null && Math.abs((+o.attrs[a] || 0) - m[a]) > 0.5;
+      });
+    }
+
+    var traced = 0;
+    marks.forEach(function (m) {
+      if (!m || m.layer !== 'mark' || traced >= 2) return;
+      var ys = null;
+      if (m.type === 'path' && m.points && m.points.length > 1) {
+        var op = prev[m.key] && prev[m.key].points, lp = m.points[m.points.length - 1];
+        if (op && op.length === m.points.length && Math.abs(op[op.length - 1][1] - lp[1]) < 0.5) return;
+        ys = m.points.map(function (p) { return -p[1]; });
+      } else if (m.type === 'line' && moved(m)) {
+        ys = [-m.y1, -m.y2];
+      }
+      if (!ys) return;
+      S.traceLine(ys, { dur: dur, lo: -H, hi: 0, pan: traced ? 0.3 : -0.3 });
+      traced++;
+    });
+
+    // Bars are pitched by whichever side varies (width for a horizontal
+    // ranking, height for columns); dots by their height on screen.
+    var rects = [], dots = [];
+    marks.forEach(function (m, i) {
+      if (!m || m.layer !== 'mark') return;
+      if (m.type === 'rect') rects.push([m, i]);
+      else if (m.type === 'circle') dots.push([m, i]);
+    });
+    function range(list, f) {
+      var v = list.map(function (p) { return f(p[0]); });
+      return [Math.min.apply(null, v), Math.max.apply(null, v)];
+    }
+    var items = [];
+    function add(list, value, pan) {
+      if (!list.length) return;
+      var r = range(list, value);
+      list.forEach(function (p) {
+        if (!moved(p[0])) return;
+        var v = r[1] > r[0] ? (value(p[0]) - r[0]) / (r[1] - r[0]) : 0.5;
+        items.push({ v: v, i: p[1], pan: pan(p[0]) });
+      });
+    }
+    if (rects.length) {
+      var rw = range(rects, function (m) { return +m.width || 0; });
+      var rh = range(rects, function (m) { return +m.height || 0; });
+      var dim = (rw[1] - rw[0]) >= (rh[1] - rh[0]) ? 'width' : 'height';
+      add(rects, function (m) { return +m[dim] || 0; },
+          function (m) { return (((+m.x || 0) + (+m.width || 0) / 2) / W * 2 - 1) * 0.5; });
+    }
+    add(dots, function (m) { return -(+m.cy || 0); },
+        function (m) { return ((+m.cx || 0) / W * 2 - 1) * 0.7; });
+    if (!items.length) return;
+
+    // at most 22 notes: thin evenly, keep the drawing order
+    if (items.length > 22) {
+      var every = items.length / 22, thin = [];
+      for (var k = 0; k < 22; k++) thin.push(items[Math.floor(k * every)]);
+      items = thin;
+    }
+    var gap = Math.min(0.045, 0.5 / items.length);
+    items.forEach(function (it, k) {
+      it.delay = stagger ? 0.05 + stagger * it.i / 1000 : 0.04 + k * gap;
+    });
+    S.cascade(items);
+  }
+
+  function paint(first, quiet) {
     var c = chapters[P.ci];
     var beat = c.beats[P.bi];
 
@@ -775,6 +897,7 @@
        scripts/fetch_industry_photos.py, so the site still makes no network
        calls; the credits are rendered under the caveats. */
     var art = $('.p-art');
+    var pics = [];
     if (art) {
       /* Codes come from THREE places, in order:
          1. `beat.portraits` / `beat.portrait` explicitly set in chapters.js
@@ -787,7 +910,7 @@
       var codes = beat.portraits || (beat.portrait ? [beat.portrait] : []);
       if (!codes.length) codes = detectPortraits(beat.text);
       var seedKey = c.id + ':' + P.bi + ':';
-      var pics = codes.map(function (code) {
+      pics = codes.map(function (code) {
         var d = byCode[code];
         if (!d) return null;
         var pool = (d.photos && d.photos.length) ? d.photos
@@ -834,12 +957,18 @@
       tipHandlers: P.tip
     };
     var marks = CH.builders[c.chart](ctx);
+    if (!quiet) {
+      sonify(marks, first ? 0.85 : 0.7, first ? 14 : 0);
+      if (window.SFX) {
+        if (beat.pivot) window.SFX.storyBeat('answer', 0.55);
+        else if (beat.mood) window.SFX.storyBeat(beat.mood, 0.45);
+        subAudio(c, beat, pics.length);
+      }
+    }
     P.scene.render(marks, {
       dur: first ? 850 : 700,
       stagger: first ? 14 : 0
     });
-    // the sound belongs to the picture arriving, not to the key that asked for it
-    if (window.SFX) window.SFX.reveal(c.chart);
 
 
     // narration
@@ -885,12 +1014,27 @@
       s.className = 'seg' + (i === P.bi ? ' now' : (i < P.bi ? ' done' : ''));
       s.type = 'button';
       s.setAttribute('aria-label', 'Step ' + (i + 1));
-      s.addEventListener('click', function () { P.bi = i; paint(false); });
+      s.addEventListener('click', function () {
+        if (i === P.bi) return;
+        if (window.SFX) { window.SFX.turn(i - P.bi); window.SFX.whoosh(i - P.bi); }
+        P.bi = i; paint(false);
+      });
       segs.appendChild(s);
     });
 
 
-    sayBeat(c, beat, P.bi);
+    /* On a step the voice waits ~260 ms so the whoosh leads it. The first beat
+       of a chapter speaks at once: that play() runs inside the click, which is
+       what lets Safari allow the reused <audio> element for later steps. A
+       resize repaint (quiet) never restarts the narration. */
+    clearTimeout(P.sayT);
+    if (!quiet) {
+      var sayBi = P.bi;
+      if (first) sayBeat(c, beat, sayBi);
+      else P.sayT = setTimeout(function () {
+        if (P.open && chapters[P.ci] === c && P.bi === sayBi) sayBeat(c, beat, sayBi);
+      }, 260);
+    }
 
 
 
@@ -980,11 +1124,11 @@
      was only half an answer. Picking a JOB TYPE shows the same list, its
      siblings, with it highlighted: the useful comparison is never against the
      whole economy, it is against the bench next to you. */
-  /* Breakdown emits a flat list of grid cells for the outer subgrid:
-     one .bd-head, then alternating (.bd-img, .bdc) pairs, one per sub-industry
-     ranked by pay. The subgrid puts .bd-img in the left column (aligned with
-     the industries list above it) and .bdc in the right column (aligned with
-     the detail card above it). */
+  /* One .bd-head, then one self-contained card per job type, ranked by pay:
+     a 16:9 photograph on top, then the figures. 🚨 The photo is a real <img>
+     inside its own card. It used to be a background-image cell in a grid row
+     beside the figures, so the row stretched it to the height of the text and
+     a landscape photo became a tall portrait slit. */
   function breakdown(r) {
     var code = r.div ? r.code : r.subrec.division;
     var kids = D.subdivisions.filter(function (x) { return x.division === code; });
@@ -1005,13 +1149,12 @@
     var body = sorted.map(function (x) {
       var me = !r.div && x.code === r.code;
       var short = shortJob(x.name);
-      var img = x.photo
-        ? '<div class="bd-img" style="background-image:url(\'' + x.photo + '\')">' +
-            '<span class="cap">' + short + '</span>' +
-          '</div>'
-        : '<div class="bd-img"><span class="cap">' + short + '</span></div>';
+      var img = '<figure class="bdc-ph">' +
+        (x.photo ? '<img src="' + x.photo + '" alt="" loading="lazy" decoding="async">' : '') +
+        '</figure>';
       var desc = x.description ? '<p class="bdc-blurb">' + x.description + '</p>' : '';
-      var card = '<div class="bdc' + (me ? ' me' : '') + '">' +
+      var card = '<article class="bdc' + (me ? ' me' : '') + '">' + img +
+        '<div class="bdc-body">' +
         '<div class="bdc-h">' +
           '<span class="bdc-n">' + x.icon + ' ' + short +
             (me ? ' <b>you are here</b>' : '') + '</span>' +
@@ -1026,13 +1169,13 @@
           '<div class="kpi"><div class="l">Real pay, 18 yrs</div><div class="v ' + cls(x.wageGrowth) + '">' + V.signed(x.wageGrowth, 0) + '</div></div>' +
           '<div class="kpi"><div class="l">Jobs, last 5 yrs</div><div class="v ' + cls(x.jobs5y) + '">' + V.signed(x.jobs5y, 0) + '</div></div>' +
         '</div>' +
-        verdictHtml({ wage: x.wage, jobs5y: x.jobs5y }) +
+        verdictHtml({ wage: x.wage, jobs5y: x.jobs5y, advice: x.advice }) +
         '<div class="bdc-s">' +
           spark(x.series.jobs, 'Employment, thousands', C.blue) +
           spark(x.series.wage, 'Pay, ' + D.meta.baseYear + ' dollars', C.orange) +
         '</div>' +
-      '</div>';
-      return img + card;
+      '</div></article>';
+      return card;
     }).join('');
 
     return header + body;
@@ -1063,38 +1206,49 @@
   }
 
 
-  /* Returns { label, tone, text } for the verdict card. The tone drives its
-     colour (aqua = worth aiming at, blue = qualifier-heavy, orange = stepping
-     stone, red = think twice). Text is 2-3 sentences of advice: whether to
-     pick it, why, and what a qualification does for you here. */
+  /* Returns { label, tone, text } for the verdict card. The LABEL and TONE are
+     computed from the data (pay against the national average, five-year hiring
+     against the economy); the TEXT is the specific advice for this exact
+     industry or job type from scripts/advice.json.
+
+     🚨 The fallback text must know which LEVEL it describes. It used to be one
+     paragraph for everything, so a job type was told to "check the job types
+     inside it", which do not exist. `isJob` is true for a job type. */
   function verdictFor(r) {
     var bw = D.benchmarks.wage, bj = D.benchmarks.jobs5y;
     var paysWell = r.wage >= bw;
     var hiring = r.jobs5y >= bj;
+    var isJob = !r.div;
     var shrinking = r.div && r.div.driver === 'Shrinking';
+    var advice = r.advice || (r.div && r.div.advice) || (r.subrec && r.subrec.advice);
     var out;
     if (paysWell && hiring) {
       out = {
         tone: 'aqua', label: 'Worth aiming at',
-        text: 'Pay is above the ' + V.money(bw, 0) + ' national average <b>and</b> hiring is above average — the rarest combination in this data. If you already hold a matching qualification, this is where it earns the most; if you do not, the entry paths are narrow and worth planning for.'
+        text: 'Pay is above the ' + V.money(bw, 0) + ' national average <b>and</b> hiring is above average, the rarest combination in this data. A matching qualification earns the most here; without one, plan the entry path early.'
       };
     } else if (paysWell) {
       out = {
         tone: 'blue', label: 'Good pay, tight door',
-        text: 'Pay is above the ' + V.money(bw, 0) + ' national average, but hiring has been slower than the economy as a whole. This is a target that rewards a specific qualification — a matching degree, trade certificate or licence turns a rare vacancy into an offer.'
+        text: 'Pay is above the ' + V.money(bw, 0) + ' national average, but hiring has been slower than the economy as a whole. It rewards a specific degree, trade certificate or licence, which is what turns a rare vacancy into an offer.'
       };
     } else if (hiring) {
       out = {
         tone: 'orange', label: 'Easy door, low ceiling',
-        text: 'Hiring is above the ' + V.signed(bj, 0) + ' five-year average but pay sits below the ' + V.money(bw, 0) + ' national average. Fair as a first step, and worth using as one; the higher-paid job types inside it are the ones to qualify into and move across to.'
+        text: 'Hiring is above the ' + V.signed(bj, 0) + ' five-year average but pay sits below the ' + V.money(bw, 0) + ' national average. ' +
+          (isJob ? 'Fair as a first step; build a qualification that moves you into a better-paid job type in the same industry.'
+                 : 'Fair as a first step; the better-paid job types inside it are the ones to qualify into.')
       };
     } else {
       out = {
         tone: 'red', label: 'Think twice',
-        text: 'Both pay and hiring sit below the national average, so this is not a broad recommendation. Some specific job types inside it do far better than the industry average — check the breakdown below before ruling it in or out.'
+        text: 'Both pay and hiring sit below the national average. ' +
+          (isJob ? 'Take it for experience or flexibility, and compare the other job types in the same industry before committing.'
+                 : 'Look at its job types below: some pay or hire noticeably better than the industry as a whole.')
       };
     }
-    if (shrinking) {
+    if (advice) out.text = advice;
+    else if (shrinking) {
       out.text += ' Real value added has fallen over eighteen years, so plan on the specific job type staying viable rather than the industry lifting you.';
     }
     return out;
@@ -1130,9 +1284,8 @@
       '<div><span class="tag">' + (r.div ? r.div.quadrant : r.sub) + '</span>' +
       '<span class="tag">' + V.fmt(r.jobs, 0) + 'k people</span></div>';
 
-    /* The breakdown goes BELOW the two columns, at the full width of the page.
-       Inside the right-hand column it was a 500px trench: fifteen cards in a
-       single narrow stack, each one mostly empty on both sides. */
+    /* The breakdown sits under the detail in the right-hand column, as a grid
+       of cards that reflows to the width it gets. */
     var bdHost = $('#exp-breakdown');
     if (bdHost) bdHost.innerHTML = breakdown(r);
 
@@ -1232,6 +1385,11 @@
       SAY.on = saved !== '0';
       vb.setAttribute('aria-pressed', SAY.on ? 'true' : 'false');
       vb.addEventListener('click', function () { setVoice(!SAY.on); });
+      if (window.SFX && window.MutationObserver) {
+        new MutationObserver(function () {
+          window.SFX.voice(vb.classList.contains('speaking'));
+        }).observe(vb, { attributes: true, attributeFilter: ['class'] });
+      }
       window.addEventListener('beforeunload', stopSpeaking);
     }
 
@@ -1257,9 +1415,16 @@
 
     $('#exp-search').addEventListener('input', function (e) {
       EX.q = e.target.value; renderExplorer();
+      if (window.SFX) window.SFX.ui('type', document.querySelectorAll('#exp-list .exp-row').length);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.aud-row'), function (r) {
+      r.addEventListener('pointerenter', function (e) {
+        if (e.pointerType === 'mouse' && window.SFX) window.SFX.ui('hover');
+      });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-level]'), function (b) {
       b.addEventListener('click', function () {
+        if (window.SFX && b.getAttribute('aria-pressed') !== 'true') window.SFX.ui('toggle');
         EX.level = b.getAttribute('data-level');
         EX.sel = null;
         Array.prototype.forEach.call(document.querySelectorAll('[data-level]'), function (o) {
@@ -1270,6 +1435,7 @@
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-sort]'), function (b) {
       b.addEventListener('click', function () {
+        if (window.SFX && b.getAttribute('aria-pressed') !== 'true') window.SFX.ui('toggle');
         EX.sort = b.getAttribute('data-sort');
         Array.prototype.forEach.call(document.querySelectorAll('[data-sort]'), function (o) {
           o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
@@ -1291,7 +1457,7 @@
       var rt;
       window.addEventListener('resize', function () {
         clearTimeout(rt);
-        rt = setTimeout(function () { if (P.open) { P.scene.measure(); paint(true); } }, 160);
+        rt = setTimeout(function () { if (P.open) { P.scene.measure(); paint(true, true); } }, 160);
       });
     }
 

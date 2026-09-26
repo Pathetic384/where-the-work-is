@@ -24,7 +24,7 @@
     dim: '#5f6877',      // de-emphasised data marks, 3.4:1 on the surface
     grid: '#1a1f26',
     axis: '#2b313a',
-    surface: '#0a0c0f'
+    surface: '#0a0c10'
   };
 
   // ------------------------------------------------------------------ layout

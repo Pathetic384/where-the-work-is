@@ -211,6 +211,7 @@
       // ============================================================== 02
       {
         id: 'inflation',
+        bed: 'tension',          // default chord for the sub-audio bed
         num: '02',
         persona: 'If you have read that wages are rising',
         question: 'Wages rose 85%. Why does nobody feel richer?',
@@ -258,6 +259,7 @@
       // ============================================================== 03
       {
         id: 'jobs',
+        bed: 'growth',          // default chord for the sub-audio bed
         num: '03',
         persona: 'The first half of the question',
         question: 'If an industry grows, does it hire?',
@@ -271,6 +273,7 @@
             state: { yField: 'jobsGrowth', yLabel: 'Jobs growth' }
           },
           {
+            mood: 'growth',
             text: 'They climb together. Growth really does turn into jobs.',
             say: 'Look at the shape they make. The dots climb from the bottom left to the top right: the further right an industry sits, the higher up it tends to be. That rising line is what it looks like when two things move together. If growing had nothing to do with hiring, the dots would be a shapeless cloud and the dashed line through them would be flat.',
             state: { yField: 'jobsGrowth', yLabel: 'Jobs growth', trend: true },
@@ -279,6 +282,7 @@
             ]
           },
           {
+            mood: 'growth',
             text: 'Health care grew most and hired most. Manufacturing did neither.',
             say: 'The two extremes make the point on their own. Private health care and social assistance grew ' + mag(by.Q.ivaGrowth) + ' and added ' + mag(by.Q.jobsGrowth) + ' more workers, far more than anything else on the board. Manufacturing shrank by ' + mag(by.C.ivaGrowth) + ' and shed ' + mag(by.C.jobsGrowth) + ' of its workforce.',
             state: {
@@ -303,6 +307,7 @@
       // ============================================================== 04
       {
         id: 'wages',
+        bed: 'tension',          // default chord for the sub-audio bed
         num: '04',
         persona: 'The half that decides your pay packet',
         question: 'Does that growth reach your pay?',
@@ -316,6 +321,7 @@
             state: { yField: 'wageGrowth', yLabel: 'Real pay growth per worker' }
           },
           {
+            mood: 'tension',
             text: 'The line goes flat. Growth says nothing about pay.',
             say: 'The neat diagonal is gone. The dots are scattered with no shape to them and the dashed line is flat. That is what no link looks like: knowing how fast an industry grew tells you nothing at all about whether the people working in it got a raise.',
             state: { yField: 'wageGrowth', yLabel: 'Real pay growth per worker', trend: true, trendColour: C.red },
@@ -324,6 +330,7 @@
             ]
           },
           {
+            mood: 'tension',
             text: 'Agriculture shrank and paid best. Health care boomed and did not.',
             say: 'The exceptions prove it. Health care grew faster than anything else in the country and gave its workers ' + mag(by.Q.wageGrowth) + '. Agriculture lost ' + mag(by.A.jobsGrowth) + ' of its workforce and handed the survivors ' + mag(by.A.wageGrowth) + ', the largest real pay rise of any industry. Shrinking paid better than booming.',
             state: {
@@ -371,6 +378,7 @@
             ]
           },
           {
+            mood: 'tension',
             text: 'Pay follows the second one, and the second one barely moved.',
             say: 'That is the missing link between the last two chapters. Pay tracks what one worker produces, not how many workers there are. An economy that grows by hiring shows that growth in the jobs column and skips the wages column entirely, which is exactly what the two scatter plots showed.',
             state: { split: true, rows: true }
@@ -408,6 +416,7 @@
             state: { quadrants: true }
           },
           {
+            mood: 'tension',
             text: 'Good pay and hiring is nearly empty: ' + V.fmt(by.B.jobs + by.D.jobs, 0) + 'k jobs.',
             say: 'The corner everyone wants, good pay and active hiring, is almost empty. Mining and utilities are in it, and between them they employ about ' + V.fmt(by.B.jobs + by.D.jobs, 0) + ' thousand people in the entire country. The circles are small because the opportunity is small.',
             state: {
@@ -420,6 +429,7 @@
             ]
           },
           {
+            mood: 'tension',
             text: 'The hiring is in the lower-paid corner, and it is millions of jobs.',
             say: 'The hiring is over here instead: health care, hospitality, education, arts, other services. These are the big circles, they are taking people on fastest, and every one of them pays below the national average. This is the trade the data actually offers someone starting out.',
             state: {
@@ -486,6 +496,7 @@
       // ============================================================== 08
       {
         id: 'shock',
+        bed: 'tension',          // default chord for the sub-audio bed
         num: '08',
         persona: 'If you want to know how fragile a job is',
         question: 'What happens when a shock hits?',
@@ -494,6 +505,7 @@
         chart: 'covidChart',
         beats: [
           {
+            mood: 'tension',
             text: 'Jobs fell ' + mag(D.covidTotal.y1) + ' in the first COVID year.',
             say: 'Employment here is counted on 30 June each year, which puts one measurement right in the middle of the first lockdowns. Across the economy, jobs fell ' + mag(D.covidTotal.y1) + ' in that year.',
             state: { year2: false },
@@ -505,6 +517,7 @@
             state: { year2: false, highlight: ['R', 'H', 'N', 'J'] }
           },
           {
+            mood: 'growth',
             text: 'The year after, the economy added ' + mag(D.covidTotal.y2) + '.',
             say: 'The following year the same industries rebounded hardest and the economy added ' + mag(D.covidTotal.y2) + '. For most of the board, COVID was a deep hole followed by a fast climb out of it. That is worth knowing on its own: a bad year is not the same thing as a bad industry.',
             state: { year2: true },
@@ -526,6 +539,7 @@
       // ============================================================== 09
       {
         id: 'next',
+        bed: 'growth',          // default chord for the sub-audio bed
         num: '09',
         persona: 'If you are choosing for the next ten years',
         question: 'And what happens next?',
@@ -542,6 +556,7 @@
             state: { projected: false }
           },
           {
+            mood: 'growth',
             text: 'Run the last ten years on: ' + V.fmt(PJ.total.then, 0) + 'k jobs by ' + PJ.horizonYear + '.',
             say: 'Now extend each bar at its own recent pace. The dashed part has not happened: it is what the last decade would give you if nothing changed. On those terms the economy reaches ' + V.fmt(PJ.total.then, 0) + ' thousand jobs by ' + PJ.horizonYear + ', about ' + V.fmt(PJ.total.added, 0) + ' thousand more than today.',
             state: { projected: true },
@@ -551,6 +566,7 @@
             ]
           },
           {
+            mood: 'growth',
             text: PJ.rows[0].short + ' alone takes ' + Math.round(PJ.rows[0].added / PJ.total.added * 100) + '% of the growth.',
             say: 'The shape of it matters more than the total. ' + PJ.rows[0].short + ' alone accounts for ' + Math.round(PJ.rows[0].added / PJ.total.added * 100) + '% of every job added, and the top three together for ' + Math.round((PJ.rows[0].added + PJ.rows[1].added + PJ.rows[2].added) / PJ.total.added * 100) + '%. The same industries that led chapters 03 and 06 lead this one, which is exactly what you would expect and exactly why it is not a forecast.',
             state: {
@@ -564,6 +580,7 @@
             ]
           },
           {
+            mood: 'tension',
             text: PJ.rows[PJ.rows.length - 1].short + ' keeps shrinking.',
             say: 'And one industry keeps going the other way. ' + PJ.rows[PJ.rows.length - 1].short + ' has been shrinking for long enough that the same arithmetic takes another ' + V.fmt(Math.abs(PJ.rows[PJ.rows.length - 1].added), 0) + ' thousand jobs out of it. This is the one projection with a long run of history behind it rather than a good decade: it is already ' + mag(by[PJ.rows[PJ.rows.length - 1].code].jobsGrowth) + ' smaller than it was in ' + D.meta.firstYear + ', and chapter 08 showed it falling straight through COVID as well.',
             state: {
@@ -717,6 +734,7 @@
             ]
           },
           {
+            foley: 'digital',   // professional qualifications: the sub-audio texture
             text: 'Have a qualification? Search by job title, never by industry.',
             say: 'By a qualification I mean something you already hold and can have recognised here: a degree, a trade certificate, or a licence, the kind of thing that gets assessed for a skilled visa or accepted by an Australian employer. If that is you, the advice is specific. Do not search by industry, search by job type, because the industry average will mislead you by tens of thousands of dollars. The three best paid job types with a real labour market behind them are ' + shortSub(skilledTop[0].name) + ' at ' + money(skilledTop[0].wage) + ', ' + shortSub(skilledTop[1].name) + ' at ' + money(skilledTop[1].wage) + ' and ' + shortSub(skilledTop[2].name) + ' at ' + money(skilledTop[2].wage) + '. So before you commit to a move, check that your qualification maps to one of those titles rather than to the industry it sits in. Chapter 10 has the full list, and you can scroll it.',
             state: { rows: ADVICE, upto: 4, focus: 3 },
@@ -727,6 +745,7 @@
             ]
           },
           {
+            mood: 'tension',
             text: 'A rising average is a warning, not an invitation.',
             say: 'Now the row that changes how you read the whole site. The industries where pay genuinely rose after inflation are ' + realUp[0].short + ', up ' + mag(realUp[0].wageGrowth) + ', ' + realUp[1].short + ' at ' + mag(realUp[1].wageGrowth) + ' and ' + realUp[2].short + ' at ' + mag(realUp[2].wageGrowth) + ', against ' + mag(H.wageRealGrowth) + ' for the average worker. But look at what they have in common. ' + realUp[0].short + ' shed ' + mag(realUp[0].jobsGrowth) + ' of its jobs and ' + realUp[2].short + ' barely grew at all. The average went up because the people went down, and the ones left are more specialised. So read a rising average as a warning rather than an invitation: it means a higher bar to get in, not a raise waiting for you. If you want one of these, go and get the specific qualification first.',
             state: { rows: ADVICE, upto: 5, focus: 4 },

@@ -21,33 +21,29 @@
   var V = global.VIZ;
   var SVG = 'http://www.w3.org/2000/svg';
 
-  /* Diverging, low pay to high pay, national average at the middle step. The
-     extremes are the lightest and the midpoint the most muted, which is the
-     right shape for a dark background.
-     ⚠️ These are the SOFTENED steps. The first version glared: its ends ran to
-     9.3:1 against the surface and eighteen of them filling the screen was too
-     much. Every step here still clears 3:1 (min 3.27), so the ends came down to
-     7.9 and 7.3 rather than the fills going translucent, which is what the
-     obvious fix would have been and would have dropped the whole ramp under the
-     floor. Re-check contrast before touching any of these. */
-  var RAMP = ['#dd8682', '#d96360', '#bd5a57', '#855c60',
-              '#5b6472',
-              '#3d69a0', '#2a70c6', '#3a7fd4', '#75a8e2'];
+  /* Diverging, low pay to high pay, national average at the middle step:
+     coral #f07167 -> slate #6c757d -> blue #3987e5 -> cyan #00afb9, interpolated
+     in OKLab. Warm against cool is the axis colour-blind readers keep. The
+     extremes are the lightest and the midpoint the most muted, the right shape
+     for a dark background. Contrast on the #0a0c10 canvas: 6.77 / 6.01 / 5.35 /
+     4.74 / 4.17 / 4.78 / 5.38 / 6.29 / 7.30, so the floor is 4.17:1 (need 3).
+     Re-check contrast before touching any of these. This array is the single
+     source: the bubbles, chapter 06's career map and the legend all read it. */
+  var RAMP = ['#f07167', '#d0756e', '#b07774', '#8f7779',
+              '#6c757d',
+              '#5780b1', '#3987e5', '#269cd0', '#00afb9'];
 
-  /* The same nine steps, pre-compensated for an 88% fill.
-     Dropping a fill to 42% made the circles pretty and made the pay scale
-     illegible, because a translucent colour over a near-black page is simply a
-     darker colour. The way to have both is to solve for it: each entry here is
-     RAMP[i] pushed up so that `fill * 0.88 + surface * 0.12` lands back EXACTLY
-     on RAMP[i]. The circle is genuinely translucent, the grain and the ambient
-     wash read through it, and the colour a viewer sees is the validated step at
-     its full contrast (min 3.28:1).
-     ⚠️ These are derived, not chosen. Change RAMP or BUBBLE_ALPHA and these have
-     to be recomputed, or the ramp on screen stops matching its own legend. */
-  var RAMP_FILL = ['#fa9792', '#f56f6b', '#d56561', '#96676b',
-                   '#667080',
-                   '#4476b4', '#2e7edf', '#418fef', '#84bdff'];
-  var BUBBLE_ALPHA = 0.88;
+  /* The same nine steps, pre-compensated for a 94% fill: each is RAMP[i] pushed
+     up so that `fill * 0.94 + surface * 0.06` lands back on RAMP[i] (worst
+     error 0.6 of 255). The circle stays translucent and the colour a viewer
+     sees is the validated step. 94%, not the old 88%: at 88% pure coral would
+     need a red channel above 255, so it cannot be rendered at all.
+     ⚠️ Derived, not chosen. Change RAMP, BUBBLE_ALPHA or the surface and these
+     must be recomputed, or the circles stop matching their own legend. */
+  var RAMP_FILL = ['#ff776d', '#dd7c74', '#bb7e7a', '#977e80',
+                   '#727c84',
+                   '#5c87bb', '#3c8ff3', '#28a5dc', '#00b9c4'];
+  var BUBBLE_ALPHA = 0.94;
   var MID = 4;
 
   function el(t, attrs) {
@@ -158,13 +154,6 @@
         n.y = Math.max(n.r + 1, Math.min(h - n.r - 1, n.y));
       }
     }
-  }
-
-  // 0 for the smallest industry, 1 for the largest. Bubble notes are pitched
-  // off this the way real ones are: big and low, small and high.
-  function sizeFrac(nodes, n) {
-    var lo = nodes[nodes.length - 1].r, hi = nodes[0].r;
-    return hi > lo ? (n.r - lo) / (hi - lo) : 0.5;
   }
 
   function worstOverlap(nodes, pad) {
@@ -302,10 +291,11 @@
         var d0 = firstTime ? i * 0.035 : 0;
         pop.style.animationDelay = d0 + 's';
         lab.style.animationDelay = (d0 + 0.22) + 's';
-        /* On a cold load this is silent, and that is correct: no browser starts
-           an AudioContext before the reader has touched the page. It sounds on
-           a resize or a return to the top, once something has been clicked. */
-        if (global.SFX) global.SFX.bubble(sizeFrac(self.nodes, n), d0 + 0.04);
+        /* First build only. On a cold load it is silent anyway (no browser
+           starts audio before a gesture), and a resize re-render must not fire
+           all eighteen notes at once: like the charts, a resize is silent. */
+        if (firstTime && global.SFX) global.SFX.playBubble(n.d.wage, n.d.jobs,
+          { delay: d0 + 0.04, enter: true, pan: (n.x / w * 2 - 1) * 0.7 });
       }
 
       /* A soft halo so each circle sits on the background rather than on top of
@@ -358,7 +348,14 @@
       drift.appendChild(lab);       // sibling of pop: fades, never scales
       g.appendChild(drift);
       n.g = g;
+      n.pan = (n.x / w * 2 - 1) * 0.7;
       g.addEventListener('click', function () { self.select(n.d.code); });
+      // mouse only: on touch, pointerenter fires on the same tap as the click
+      g.addEventListener('pointerenter', function (e) {
+        if (e.pointerType === 'mouse' && global.SFX) {
+          global.SFX.playBubble(n.d.wage, n.d.jobs, { hover: true, key: n.d.code, pan: n.pan });
+        }
+      });
       g.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); self.select(n.d.code); }
       });
@@ -369,7 +366,10 @@
   };
 
   Hero.prototype.select = function (code) {
-    if (global.SFX) global.SFX.tap();
+    if (global.SFX && this.selected !== code) {
+      var n = this.nodes.filter(function (m) { return m.d.code === code; })[0];
+      if (n) global.SFX.playBubble(n.d.wage, n.d.jobs, { pan: n.pan });
+    }
     this.selected = this.selected === code ? null : code;
     this.paintSelected();
     if (this.onOpen) this.onOpen(this.selected);

@@ -1346,7 +1346,13 @@
        credit. Generated from the same data the images come from, so a new
        photo cannot ship uncredited. */
     var cr = $('#credits');
-    if (cr) cr.textContent = 'Illustrative photographs of each ABS sub-industry, supplied by the project team.';
+    if (cr) {
+      var pc = D.photoCredits || [];
+      cr.textContent = 'Illustrative photographs of each ABS sub-industry, supplied by the project team' +
+        (pc.length ? '; ' + pc.length + ' from Wikimedia Commons: ' + pc.map(function (c) {
+          return c.title.replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '') + ', ' + c.author + ', ' + c.licence;
+        }).join('; ') : '') + '.';
+    }
 
     buildHero();
     navBar();

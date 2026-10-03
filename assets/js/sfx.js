@@ -221,8 +221,8 @@
   // ============================================================ sub-audio
   /* The documentary layer under the narration, on its own bus (`sub`):
 
-       bed          a soft pad that runs while a chapter is open and changes
-                    chord with the beat's mood, all in D so it never fights the
+       bed          a quiet piece of music (pad, plucked arpeggio, bass) that
+                    runs while a chapter is open, in D so it never fights the
                     chimes and mallets above it
        foley        a short texture for the industry a beat is about
        punctuation  a whoosh on each step, a thump and shimmer when numbers or
@@ -235,15 +235,72 @@
 
      🚨 Nothing plays on an idle screen still holds: the bed breathes out after
      40 s with no narration and no step, and comes back on the next one. */
-  var SUB_PAUSE = 0.35, SUB_SPEAK = 0.18, BED_LEVEL = 0.11, IDLE_MS = 40000;
+  var SUB_PAUSE = 0.35, SUB_SPEAK = 0.18, BED_LEVEL = 0.5, IDLE_MS = 40000;
   var subOpen = false, speaking = false, bed = null, bedMoodNow = 'neutral', idleT = 0;
 
-  var BED_CHORDS = {
-    neutral: [146.83, 220.00, 329.63, 369.99],   // D add9, open voicing
-    growth:  [146.83, 220.00, 277.18, 369.99],   // D major 7: warm, lifting
-    tension: [146.83, 220.00, 329.63, 349.23],   // D minor add9: the F natural
-    answer:  [146.83, 220.00, 293.66, 369.99]    // D major: home
-  };
+  /* The bed is MUSIC, not a drone. The first version held four detuned sines
+     under a slowly breathing filter, with a minor chord for "tension": on a
+     data documentary that read as eerie. Now it is a warm, moving underscore:
+     I-V-vi-IV in D (D, A, Bm, G), two bars a chord at 88 bpm, a soft plucked
+     arpeggio over a sustained pad and a light bass. Mood changes the density,
+     never the key or the colour: tension thins the arpeggio to quarter notes,
+     growth and the answer add a soft off-beat shaker. Notes are scheduled a
+     quarter second ahead from a 50 ms timer, the standard Web Audio pattern,
+     so the rhythm stays steady whatever the main thread is doing. */
+  // Level: a plucked note dies away where the old pad held, so BED_LEVEL has to
+  // sit near 0.5 for the music to reach the old pad's loudness. Measured at the
+  // output under the voice: RMS about 0.015, some 18 dB below the narration.
+  var BPM = 88, EIGHTH = 60 / BPM / 2, STEPS_PER_CHORD = 16;
+  var PROG = [                     // root (Hz) and chord tones, in D major
+    [73.42, [293.66, 369.99, 440.00]],     // D
+    [55.00, [277.18, 329.63, 440.00]],     // A  (C# E A, close to the D voicing)
+    [61.74, [293.66, 369.99, 493.88]],     // Bm (D F# B)
+    [49.00, [293.66, 392.00, 493.88]]      // G  (D G B)
+  ];
+  var ARP = [0, 1, 2, 1, 0, 2, 1, 2];      // which chord tone, per eighth
+  var MOODS = { neutral: 1, growth: 1, tension: 1, answer: 1 };
+
+  function bedNote(f, t, peak, a, rel, type, wet) {
+    if (!bed || live > MAX_LIVE) return;
+    var o = A.createOscillator(), gn = A.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f, t);
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(peak, t + a);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + a + rel);
+    o.connect(gn); gn.connect(bed.g);
+    if (wet) { var w = A.createGain(); w.gain.value = wet; gn.connect(w); w.connect(subSend); }
+    live++;
+    o.onended = function () { live--; try { gn.disconnect(); } catch (e) { /* gone */ } };
+    o.start(t); o.stop(t + a + rel + 0.05);
+  }
+  function bedTick() {
+    if (!bed || !A) return;
+    var ahead = A.currentTime + 0.25;
+    while (bed.next < ahead) {
+      var t = bed.next, k = bed.step, mood = bedMoodNow;
+      var chord = PROG[Math.floor(k / STEPS_PER_CHORD) % PROG.length], pos = k % STEPS_PER_CHORD;
+      var human = 0.85 + Math.random() * 0.3;
+      if (pos === 0) {
+        // pad: the chord, swelling in and fading out across its two bars
+        chord[1].forEach(function (f) {
+          bedNote(f / 2, t, 0.2, 1.2, STEPS_PER_CHORD * EIGHTH + 0.6, 'triangle', 0.25);
+        });
+      }
+      if (pos % 4 === 0) bedNote(chord[0], t, pos === 0 ? 0.42 : 0.3, 0.02, 1.1, 'sine', 0);   // bass
+      var sparse = mood === 'tension';
+      if (!sparse || pos % 2 === 0) {
+        var f = chord[1][ARP[pos % 8]] * (pos >= 8 && pos % 4 === 2 ? 2 : 1);
+        bedNote(f, t, 0.32 * human, 0.004, 0.55, 'sine', 0.2);          // the pluck
+        bedNote(f * 2, t, 0.07 * human, 0.002, 0.12, 'triangle', 0);     // its bright attack
+      }
+      if ((mood === 'growth' || mood === 'answer') && pos % 2 === 1) {
+        sNoise({ f: 7500, q: 1.4, t: t, dur: 0.03, peak: 0.03 * human });
+      }
+      bed.step++;
+      bed.next += EIGHTH;
+    }
+  }
 
   function subLevel(tc) {
     if (!A || !sub) return;
@@ -261,38 +318,23 @@
     g0.gain.setValueAtTime(0.0001, t);
     g0.gain.setTargetAtTime(BED_LEVEL, t, 0.9);
     var lp = a.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 620; lp.Q.value = 0.6;
-    // a very slow breath on the filter, so the pad is never quite static
-    var lfo = a.createOscillator(), lfoG = a.createGain();
-    lfo.frequency.value = 0.06; lfoG.gain.value = 160;
-    lfo.connect(lfoG); lfoG.connect(lp.frequency);
-    var wet = a.createGain(); wet.gain.value = 0.5;
-    g0.connect(lp); lp.connect(sub); lp.connect(wet); wet.connect(subSend);
-    var voices = BED_CHORDS[bedMoodNow].map(function (f, i) {
-      var o1 = a.createOscillator(), o2 = a.createOscillator(), vg = a.createGain();
-      o1.type = 'sine'; o2.type = 'triangle';
-      o1.frequency.value = f; o2.frequency.value = f; o2.detune.value = i % 2 ? 6 : -6;
-      vg.gain.value = i === 0 ? 0.34 : 0.24;
-      o1.connect(vg); o2.connect(vg); vg.connect(g0);
-      o1.start(t); o2.start(t);
-      return [o1, o2];
-    });
-    lfo.start(t);
-    bed = { g: g0, lp: lp, lfo: lfo, voices: voices };
+    lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.5;
+    g0.connect(lp); lp.connect(sub);
+    bed = { g: g0, lp: lp, step: 0, next: t + 0.1, timer: 0 };
+    bed.timer = setInterval(bedTick, 50);
+    bedTick();
   }
 
   function bedStop(fast) {
     if (!bed || !A) { bed = null; return; }
     var b = bed, now = A.currentTime, tc = fast ? 0.05 : 0.8;
     bed = null;
+    clearInterval(b.timer);
     b.g.gain.cancelScheduledValues(now);
     b.g.gain.setValueAtTime(b.g.gain.value, now);
     b.g.gain.setTargetAtTime(0.0001, now, tc);
-    var end = now + tc * 6;
-    b.voices.forEach(function (v) { v[0].stop(end); v[1].stop(end); });
-    b.lfo.stop(end);
     setTimeout(function () { try { b.g.disconnect(); b.lp.disconnect(); } catch (e) { /* gone */ } },
-      (tc * 6 + 0.2) * 1000);
+      (tc * 6 + 1.5) * 1000);
   }
 
   function touch() {
@@ -303,24 +345,17 @@
 
   function bedMood(mood, swell) {
     if (!subOpen) return;
-    if (!BED_CHORDS[mood]) mood = 'neutral';
+    if (!MOODS[mood]) mood = 'neutral';
     bedMoodNow = mood;
     touch();
     if (!bed) { bedStart(); if (!bed) return; }
-    var now = A.currentTime;
-    BED_CHORDS[mood].forEach(function (f, i) {
-      bed.voices[i][0].frequency.setTargetAtTime(f, now, 0.5);
-      bed.voices[i][1].frequency.setTargetAtTime(f, now, 0.5);
-    });
     if (swell) {
-      // the answer: open the filter and lift the pad, then settle back
+      // the answer: lift the music, then settle back
+      var now = A.currentTime;
       bed.g.gain.cancelScheduledValues(now);
       bed.g.gain.setValueAtTime(bed.g.gain.value, now);
-      bed.g.gain.setTargetAtTime(BED_LEVEL * 2.1, now, 0.35);
+      bed.g.gain.setTargetAtTime(BED_LEVEL * 1.8, now, 0.35);
       bed.g.gain.setTargetAtTime(BED_LEVEL, now + 2.4, 1.2);
-      bed.lp.frequency.cancelScheduledValues(now);
-      bed.lp.frequency.setTargetAtTime(1500, now, 0.4);
-      bed.lp.frequency.setTargetAtTime(620, now + 2.4, 1.2);
     }
   }
 

@@ -390,19 +390,57 @@
       });
       out.push(icon('di:' + d.code, x(d.ivaGrowth), y(d[yf]) + rr * 0.38,
         d.icon, rr * 1.05, { layer: 'label', opacity: on ? 1 : 0.5 }));
-      var lab = (s.labels || []).indexOf(d.code) >= 0;
-      if (lab) {
-        // A centred label on a dot near the edge would hang off the plot, so
-        // anchor it inward once it gets within half a label of the frame.
-        var half = d.short.length * (b.sm ? 2.9 : 3.5);
-        var lx = x(d.ivaGrowth), anchor = 'middle';
-        if (lx + half > b.x1) { lx = b.x1; anchor = 'end'; }
-        else if (lx - half < b.x0) { lx = b.x0; anchor = 'start'; }
-        out.push(txt('dl:' + d.code, lx, y(d[yf]) - 14, d.short, {
-          anchor: anchor, size: b.sm ? 10 : 12, fill: C.ink, weight: 6
-        }));
-      }
     });
+
+    /* Every dot carries its industry's name: the icons alone were too small to
+       read. A greedy pass, the beat's named industries first, tries right,
+       left, above and below each dot, measured with the canvas ruler, and skips
+       a name that would land on another name or on another dot. */
+    var size = b.sm ? 9.5 : 11.5;
+    var taken = rows.map(function (d) {
+      var rr = b.sm ? 11 : 14;
+      return { code: d.code, x: x(d.ivaGrowth) - rr, y: y(d[yf]) - rr, w: rr * 2, h: rr * 2 };
+    });
+    var hits = function (bx, own) {
+      if (bx.x < b.x0 - 2 || bx.x + bx.w > b.x1 + 2 || bx.y < b.y0 - 4 || bx.y + bx.h > b.y1 + 2) return true;
+      return taken.some(function (t) {
+        return t.code !== own && bx.x < t.x + t.w && t.x < bx.x + bx.w && bx.y < t.y + t.h && t.y < bx.y + bx.h;
+      });
+    };
+    var named = s.labels || [];
+    rows.slice().sort(function (a, c) { return (named.indexOf(c.code) >= 0) - (named.indexOf(a.code) >= 0); })
+      .forEach(function (d) {
+        var on = !anyHl || hlSet[d.code];
+        var cx = x(d.ivaGrowth), cy = y(d[yf]), rr = (b.sm ? 11 : 14) + 3;
+        var w = textWidth(d.short, size, true) + 4, h = size + 3;
+        // beside the dot first, then diagonally, then further out on a thin
+        // leader line, so a crowded middle still gets every name
+        var tries = [];
+        [0, 16, 34].forEach(function (far) {
+          var g = rr + far, dg = g * 0.75;
+          tries.push([cx + g, cy, 'start'], [cx - g, cy, 'end'], [cx, cy - g, 'up'], [cx, cy + g, 'down'],
+                     [cx + dg, cy - dg, 'start'], [cx + dg, cy + dg, 'start'], [cx - dg, cy - dg, 'end'], [cx - dg, cy + dg, 'end']);
+        });
+        for (var i = 0; i < tries.length; i++) {
+          var tx = tries[i][0], ty = tries[i][1], mode = tries[i][2], bx;
+          if (mode === 'start') bx = { x: tx, y: ty - h / 2, w: w, h: h };
+          else if (mode === 'end') bx = { x: tx - w, y: ty - h / 2, w: w, h: h };
+          else if (mode === 'up') bx = { x: tx - w / 2, y: ty - h, w: w, h: h };
+          else bx = { x: tx - w / 2, y: ty, w: w, h: h };
+          if (hits(bx, d.code)) continue;
+          taken.push(Object.assign({ code: 'l:' + d.code }, bx));
+          if (i >= 8) {
+            out.push(gridline('dll:' + d.code, cx, cy, mode === 'start' ? bx.x : mode === 'end' ? bx.x + bx.w : tx,
+              mode === 'up' ? bx.y + bx.h : mode === 'down' ? bx.y : ty, { layer: 'grid', stroke: C.muted, width: 1, opacity: 0.6 }));
+          }
+          out.push(txt('dl:' + d.code, mode === 'up' || mode === 'down' ? tx : tx, bx.y + h / 2 + size * 0.35, d.short, {
+            anchor: mode === 'start' ? 'start' : mode === 'end' ? 'end' : 'middle', size: size, weight: 6, cls: 'halo',
+            fill: named.indexOf(d.code) >= 0 || (anyHl && on) ? C.ink : C.ink2,
+            opacity: on ? 1 : 0.6
+          }));
+          break;
+        }
+      });
     return out;
   }
 
@@ -1047,6 +1085,85 @@
     return { d: V.pathFromPoints(pts, true), pts: pts, lo: e[0], hi: e[1] };
   }
 
+  // ==================================================================
+  // The film's narrowing step: all 78 job types on the same pay x hiring
+  // map as the industries, so the reader sees the corner fill up one level
+  // down, then which job types lead it. Keys are "jt:<code>", so the stages
+  // (all -> corner -> focus) move and recolour the same dots.
+  // ==================================================================
+  function jobTypeMap(ctx) {
+    var s = ctx.beat, D = ctx.data;
+    var rows = D.subdivisions;
+    var bw = D.benchmarks.wage, bj = D.benchmarks.jobs5y;
+    var b = box(ctx, { l: ctx.w < 640 ? 40 : 58, r: ctx.w < 640 ? 12 : 24, t: 30, b: 50 });
+    var YMAX = 62;   // ponytail: one 2k-job outlier (+100%) is pinned to the top edge rather than squashing the other 77
+    var xe = V.extent(rows, function (d) { return d.wage; });
+    var ylo = Math.min(-5, V.extent(rows, function (d) { return d.jobs5y; })[0]);
+    var x = V.scaleLinear(Math.max(0, xe[0] - 10), xe[1] + 10, b.x0, b.x1);
+    var y = V.scaleLinear(ylo - 4, YMAX, b.y1, b.y0);
+    var rs = V.scaleSqrt(V.extent(rows, function (d) { return d.jobs; })[1], b.sm ? 15 : 24);
+    var stage = s.stage || 'all';
+    var focus = {}, note = s.note || null;
+    (s.focus || []).forEach(function (c) { focus[c] = 1; });
+    var inCorner = function (d) { return d.wage > bw && d.jobs5y > bj; };
+    var out = [];
+    var nT = b.sm ? 3 : 5;
+    out = out.concat(yAxis('jt', b, y, V.niceTicks(y.domain[0], YMAX, nT), function (t) { return V.signed(t, 0); }, { zero: true }));
+    out = out.concat(xAxis('jt', b, x, V.niceTicks(x.domain[0], x.domain[1], nT), function (t) { return '$' + Math.round(t) + 'k'; }));
+    out.push(txt('jt:xlab', (b.x0 + b.x1) / 2, ctx.h - 8, 'Average pay, 2024-25',
+      { anchor: 'middle', size: b.sm ? 10 : 12, fill: C.muted }));
+    out.push(txt('jt:ylab', b.sm ? 6 : 14, b.y0 - 12, 'Jobs growth, last 5 years',
+      { size: b.sm ? 10 : 12, fill: C.muted, weight: 6 }));
+
+    var cx = x(bw), cy = y(bj);
+    out.push(gridline('jt:qv', cx, b.y0, cx, b.y1, { stroke: C.axis, width: 1.5, dash: '5 4' }));
+    out.push(gridline('jt:qh', b.x0, cy, b.x1, cy, { stroke: C.axis, width: 1.5, dash: '5 4' }));
+    var lit = stage !== 'all';
+    out.push({ key: 'jt:corner', type: 'rect', layer: 'grid', x: cx, y: b.y0, width: b.x1 - cx, height: cy - b.y0,
+               fill: C.aqua, opacity: lit ? 0.09 : 0, rx: 2 });
+    var corner = rows.filter(inCorner);
+    var cJobs = corner.reduce(function (a, d) { return a + d.jobs; }, 0);
+    out.push(txt('jt:ctitle', b.x1 - 8, b.y0 + 18, 'Well paid AND hiring',
+      { anchor: 'end', size: b.sm ? 11 : 13, weight: 7, fill: lit ? C.ink : C.muted }));
+    out.push(txt('jt:ccount', b.x1 - 8, b.y0 + (b.sm ? 33 : 36),
+      corner.length + ' job types, ' + V.fmt(cJobs / 1000, 1) + 'M jobs',
+      { anchor: 'end', size: b.sm ? 10 : 12, fill: C.aqua, opacity: lit ? 1 : 0 }));
+
+    rows.slice().sort(function (a, c) { return c.jobs - a.jobs; }).forEach(function (d) {
+      var hot = focus[d.code], isNote = note === d.code, cor = inCorner(d);
+      var col = C.blue, op = 0.42;
+      if (stage === 'corner') { col = cor ? C.aqua : C.dim; op = cor ? 0.6 : 0.22; }
+      if (stage === 'focus') {
+        col = hot ? C.aqua : isNote ? C.orange : C.dim;
+        op = hot || isNote ? 0.85 : cor ? 0.3 : 0.16;
+      }
+      out.push({
+        key: 'jt:' + d.code, type: 'circle', layer: 'mark',
+        cx: x(d.wage), cy: y(Math.min(YMAX, d.jobs5y)), r: Math.max(2.5, rs(d.jobs)),
+        fill: col, 'fill-opacity': op, stroke: col, 'stroke-width': hot || isNote ? 2.5 : 1,
+        'stroke-opacity': hot || isNote ? 1 : 0.6, ease: 'inOut'
+      });
+    });
+
+    // name the focus and the note, beside the dot, on whichever side has room
+    if (stage === 'focus') {
+      var size = b.sm ? 10.5 : 12.5;
+      rows.filter(function (d) { return focus[d.code] || note === d.code; }).forEach(function (d, i) {
+        var nm = (s.names && s.names[d.code]) || d.name;
+        var label = nm + (b.sm ? '' : ', ' + V.money(d.wage, 1) + ', ' + V.signed(d.jobs5y, 1));
+        var w = textWidth(label, size, true);
+        var dx = x(d.wage), dy = y(Math.min(YMAX, d.jobs5y)), r = Math.max(2.5, rs(d.jobs)) + 6;
+        var right = dx + r + w < b.x1;
+        var lx = right ? dx + r : Math.max(b.x0 + 2, dx - r - w);
+        out.push(txt('jt:l:' + d.code, right ? lx : lx + w, dy + 4 + (s.nudge && s.nudge[d.code] || 0), label, {
+          anchor: right ? 'start' : 'end', size: size, weight: 7, cls: 'halo',
+          fill: focus[d.code] ? C.ink : C.ink2
+        }));
+      });
+    }
+    return out;
+  }
+
   global.CHARTS = {
     C: C,
     box: box,
@@ -1063,7 +1180,8 @@
       covidChart: covidChart,
       projectionBars: projectionBars,
       subRanking: subRanking,
-      adviceBoard: adviceBoard
+      adviceBoard: adviceBoard,
+      jobTypeMap: jobTypeMap
     }
   };
 })(window);

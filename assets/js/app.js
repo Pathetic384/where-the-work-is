@@ -26,14 +26,6 @@
 
   // ================================================================ tooltip
   var tipEl;
-  function tipHost() {
-    if (!tipEl) {
-      tipEl = document.createElement('div');
-      tipEl.className = 'tip';
-      $('.p-chart').appendChild(tipEl);
-    }
-    return tipEl;
-  }
 
 
   function rowHtml(label, value) {
@@ -45,11 +37,22 @@
 
 
   function makeTipHandlers(host) {
+    // one tooltip per host: the chapter player's chart, or the presentation's
+    var own = null;
+    function tipHost() {
+      if (!own) {
+        own = document.createElement('div');
+        own.className = 'tip';
+        host.appendChild(own);
+        if (host.classList.contains('p-chart')) tipEl = own;   // the player hides it on a step
+      }
+      return own;
+    }
     return function (d) {
       return {
         mouseenter: function (e) { show(d, e); },
         mousemove: function (e) { move(e); },
-        mouseleave: function () { if (tipEl) tipEl.classList.remove('on'); }
+        mouseleave: function () { if (own) own.classList.remove('on'); }
       };
     };
 
@@ -173,6 +176,7 @@
      the synthetic voice would say, and re-implementing these rules in the
      capture snippet is how the two quietly drift apart. */
   global.SPEAKABLE = speakable;
+  global.TIPS = makeTipHandlers;      // the presentation mode hovers its charts with the same tooltip
 
   function stopSpeaking() {
     if (SAY.audio) {
@@ -1162,13 +1166,13 @@
         '</div>' +
         desc +
         '<div class="bdc-bar"><i style="width:' + (x.wage / hi * 100).toFixed(1) + '%"></i></div>' +
-        '<div class="kpis bdc-k">' +
-          '<div class="kpi"><div class="l">Jobs</div><div class="v">' + V.fmt(x.jobs, 0) + 'k</div></div>' +
-          '<div class="kpi"><div class="l">Pay</div><div class="v">' + V.money(x.wage, 0) + '</div></div>' +
-          '<div class="kpi"><div class="l">Jobs, 18 yrs</div><div class="v ' + cls(x.jobsGrowth) + '">' + V.signed(x.jobsGrowth, 0) + '</div></div>' +
-          '<div class="kpi"><div class="l">Real pay, 18 yrs</div><div class="v ' + cls(x.wageGrowth) + '">' + V.signed(x.wageGrowth, 0) + '</div></div>' +
-          '<div class="kpi"><div class="l">Jobs, last 5 yrs</div><div class="v ' + cls(x.jobs5y) + '">' + V.signed(x.jobs5y, 0) + '</div></div>' +
-        '</div>' +
+        (function () { var a = kpiAvgs(x, true); return '<div class="kpis bdc-k">' +
+          '<div class="kpi"><div class="l">Jobs</div><div class="v">' + V.fmt(x.jobs, 0) + 'k</div>' + a.jobs + '</div>' +
+          '<div class="kpi"><div class="l">Pay</div><div class="v">' + V.money(x.wage, 0) + '</div>' + a.wage + '</div>' +
+          '<div class="kpi"><div class="l">Jobs, 18 yrs</div><div class="v ' + cls(x.jobsGrowth) + '">' + V.signed(x.jobsGrowth, 0) + '</div>' + a.jobsGrowth + '</div>' +
+          '<div class="kpi"><div class="l">Real pay, 18 yrs</div><div class="v ' + cls(x.wageGrowth) + '">' + V.signed(x.wageGrowth, 0) + '</div>' + a.wageGrowth + '</div>' +
+          '<div class="kpi"><div class="l">Jobs, last 5 yrs</div><div class="v ' + cls(x.jobs5y) + '">' + V.signed(x.jobs5y, 0) + '</div>' + a.jobs5y + '</div>' +
+        '</div>'; })() +
         verdictHtml({ wage: x.wage, jobs5y: x.jobs5y, advice: x.advice }) +
         '<div class="bdc-s">' +
           spark(x.series.jobs, 'Employment, thousands', C.blue) +
@@ -1253,6 +1257,34 @@
     }
     return out;
   }
+  /* Under every figure, the average it should be read against, with an arrow,
+     so a reader can compare without knowing the national numbers. Jobs are
+     compared with the average industry (or job type), the rest with the whole
+     economy. The arrow carries the direction; colour only repeats it. */
+  var AVG = (function () {
+    var H = D.economy.headline;
+    var mean = function (rows) { return rows.reduce(function (a, d) { return a + d.jobs; }, 0) / rows.length; };
+    return {
+      divJobs: mean(D.divisions.filter(function (d) { return !d.hidden; })),
+      subJobs: mean(D.subdivisions),
+      wage: D.benchmarks.wage, jobsGrowth: H.jobsGrowth, wageGrowth: H.wageRealGrowth, jobs5y: D.benchmarks.jobs5y
+    };
+  })();
+  function vsAvg(v, avg, text) {
+    var d = v - avg, same = Math.abs(d) < Math.abs(avg) * 0.02 + 0.05;
+    var mark = same ? '=' : d > 0 ? '\u25B2' : '\u25BC';
+    return '<div class="c ' + (same ? 'eq' : d > 0 ? 'up' : 'down') + '"><span aria-hidden="true">' + mark + '</span> ' + text + '</div>';
+  }
+  function kpiAvgs(x, isJob) {
+    var ja = isJob ? AVG.subJobs : AVG.divJobs;
+    return {
+      jobs: vsAvg(x.jobs, ja, 'avg ' + (isJob ? 'job type ' : 'industry ') + V.fmt(ja, 0) + 'k'),
+      wage: vsAvg(x.wage, AVG.wage, 'avg ' + V.money(AVG.wage, 0)),
+      jobsGrowth: x.jobsGrowth == null ? '' : vsAvg(x.jobsGrowth, AVG.jobsGrowth, 'avg ' + V.signed(AVG.jobsGrowth, 0)),
+      wageGrowth: x.wageGrowth == null ? '' : vsAvg(x.wageGrowth, AVG.wageGrowth, 'avg ' + V.signed(AVG.wageGrowth, 0)),
+      jobs5y: x.jobs5y == null ? '' : vsAvg(x.jobs5y, AVG.jobs5y, 'avg ' + V.signed(AVG.jobs5y, 0))
+    };
+  }
   function verdictHtml(r) {
     var v = verdictFor(r);
     return '<div class="verdict v-' + v.tone + '" data-verdict-label="' + v.label + '">' + v.text + '</div>';
@@ -1271,13 +1303,13 @@
       '<h3>' + r.full + '</h3>' +
       '<div class="kind">' + (r.div ? 'Industry division' : 'Job type inside ' + r.sub) + '</div>' +
       (desc ? '<p class="blurb">' + desc + '</p>' : '') +
-      '<div class="kpis">' +
-      '<div class="kpi"><div class="l">Jobs, ' + D.meta.baseYear + '</div><div class="v">' + V.fmt(r.jobs, 0) + 'k</div></div>' +
-      '<div class="kpi"><div class="l">Average pay</div><div class="v">' + V.money(r.wage, 0) + '</div></div>' +
-      '<div class="kpi"><div class="l">Jobs, 18 yrs</div><div class="v ' + cls(r.jobsGrowth) + '">' + V.signed(r.jobsGrowth, 0) + '</div></div>' +
-      '<div class="kpi"><div class="l">Real pay, 18 yrs</div><div class="v ' + cls(r.wageGrowth) + '">' + V.signed(r.wageGrowth, 0) + '</div></div>' +
-      '<div class="kpi"><div class="l">Jobs, last 5 yrs</div><div class="v ' + cls(r.jobs5y) + '">' + V.signed(r.jobs5y, 0) + '</div></div>' +
-      '</div>' +
+      (function () { var a = kpiAvgs(r, !r.div); return '<div class="kpis">' +
+      '<div class="kpi"><div class="l">Jobs, ' + D.meta.baseYear + '</div><div class="v">' + V.fmt(r.jobs, 0) + 'k</div>' + a.jobs + '</div>' +
+      '<div class="kpi"><div class="l">Average pay</div><div class="v">' + V.money(r.wage, 0) + '</div>' + a.wage + '</div>' +
+      '<div class="kpi"><div class="l">Jobs, 18 yrs</div><div class="v ' + cls(r.jobsGrowth) + '">' + V.signed(r.jobsGrowth, 0) + '</div>' + a.jobsGrowth + '</div>' +
+      '<div class="kpi"><div class="l">Real pay, 18 yrs</div><div class="v ' + cls(r.wageGrowth) + '">' + V.signed(r.wageGrowth, 0) + '</div>' + a.wageGrowth + '</div>' +
+      '<div class="kpi"><div class="l">Jobs, last 5 yrs</div><div class="v ' + cls(r.jobs5y) + '">' + V.signed(r.jobs5y, 0) + '</div>' + a.jobs5y + '</div>' +
+      '</div>'; })() +
       verdictHtml(r) +
       spark(jobsVals, 'Employment, thousands of people', C.blue) +
       spark(wageVals, 'Average pay per worker, in ' + D.meta.baseYear + ' dollars', C.orange) +

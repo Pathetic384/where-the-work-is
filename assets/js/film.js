@@ -58,6 +58,20 @@
       var r = a / b;
       return r > 1.9 && r < 2.1 ? 'twice' : r > 0.4 && r < 0.6 ? 'about half' : V.fmt(r, 1) + ' times';
     };
+    // what the VOICE says: whole dollars, rounded shares, words for multiples
+    var k$ = function (v) { return '$' + Math.round(v) + 'k'; };
+    var pct = function (jobs) { return jobs / H.jobsLast * 100; };
+    var aboutPct = function (p) { return p < 2 ? 'under 2%' : 'about ' + Math.round(p) + '%'; };
+    var oneInN = function (p) { return 'about one in ' + Math.round(100 / p); };
+    var timesW = function (a, b) {
+      var r = a / b;
+      return r < 0.6 && r > 0.4 ? 'about half' : r < 1.9 ? 'about ' + V.fmt(r, 1) + ' times' : r < 2.1 ? 'twice' :
+        r < 2.45 ? 'more than twice' : r < 2.65 ? 'two and a half times' : 'about ' + Math.round(r) + ' times';
+    };
+    var fracW = function (p) {
+      var o = [[25, 'a quarter'], [33.3, 'a third'], [50, 'half'], [66.7, 'two thirds'], [75, 'three quarters']];
+      return o.sort(function (a, c) { return Math.abs(a[0] - p) - Math.abs(c[0] - p); })[0][1];
+    };
     var media = global.FILM_MEDIA || {};
     var photo = function (k) { return media[k] ? media[k].src : null; };
     var clip = function (k) { return media.clips && media.clips[k] ? media.clips[k].src : null; };
@@ -159,9 +173,9 @@
       // ---------------------------------------------------- II: where the pay is
       { act: 'II', kind: 'chart', chapter: 'pay', beat: 1, mood: 'neutral', foley: 'heavy',
         head: 'Mining pays the most.',
-        say: 'Start with pay, where Mia\'s instinct points. Mining wins at ' + m(by.B.wage) + ' a year, ' + times(by.B.wage, bw) + ' the ' + m(bw) + ' average.',
+        say: 'Start with pay, where Mia\'s instinct points. Mining wins at ' + k$(by.B.wage) + ' a year, ' + timesW(by.B.wage, bw) + ' the ' + k$(bw) + ' average.',
         roll: { at: 'post', panes: [{ clip: clip('mining'), label: 'Mining, ' + m(by.B.wage) + ', ' + share(by.B.jobs) + ' of all jobs' }],
-                say: 'But mining employs only ' + V.fmt(by.B.jobs, 0) + ' thousand people: ' + share(by.B.jobs) + ' of all workers, about one in ' + oneIn + '.' } },
+                say: 'But mining employs only about ' + Math.round(by.B.jobs / 10) * 10 + ' thousand people: ' + aboutPct(pct(by.B.jobs)) + ' of all workers.' } },
 
       // ---------------------------------------------------- III: where the jobs are
       { act: 'III', kind: 'chart', chapter: 'jobs', beat: 1, mood: 'growth',
@@ -172,16 +186,16 @@
         head: 'But growth does not create raises.',
         say: 'Keep the same dots and ask about pay, after inflation. The line goes flat.',
         roll: { at: 'post', panes: [{ clip: clip('hospital'), label: nice(grew) + ': output ' + V.signed(grew.ivaGrowth, 1) + ', real pay ' + V.signed(grew.wageGrowth, 1) }],
-                say: 'That is Alex\'s trap: ' + grew.short.toLowerCase() + '\'s output grew the most, ' + p1(grew.ivaGrowth) + ', yet its real pay rose just ' + p1(grew.wageGrowth) + ', ' + times(grew.wageGrowth, H.wageRealGrowth) + ' the ' + p1(H.wageRealGrowth) + ' average.' } },
+                say: 'That is Alex\'s trap: ' + grew.short.toLowerCase() + '\'s output grew the most, to ' + timesW(1 + grew.ivaGrowth / 100, 1) + ' its old size, yet its real pay rose under ' + Math.ceil(grew.wageGrowth) + '%, ' + timesW(grew.wageGrowth, H.wageRealGrowth) + ' the average.' } },
 
       { act: 'III', kind: 'chart', chapter: 'where', beat: 1, mood: 'neutral',
         head: 'Growth went into hiring, not pay.',
-        say: 'Why? ' + H.jobsShareOfGrowth + '% of the growth came from hiring more people, only ' + H.productivityShareOfGrowth + '% from each person producing more, and pay follows the second part. So ask both questions at once.' },
+        say: 'Why? ' + fracW(H.jobsShareOfGrowth).replace(/^a /, 'A ').replace(/^t/, 'T').replace(/^h/, 'H') + ' of the growth came from hiring more people, only ' + fracW(H.productivityShareOfGrowth) + ' from each person producing more, and pay follows the second part. So ask both questions at once.' },
 
       // ---------------------------------------------------- IV: both at once, wide to narrow
       { act: 'IV', kind: 'chart', chapter: 'map', beat: 2, mood: 'tension',
         head: 'Well paid AND hiring: ' + share(corner) + ' of jobs.',
-        say: 'Put both on one map. Among whole industries, only mining and utilities are well paid and hiring fast, and together they hold just ' + share(corner) + ' of all jobs.',
+        say: 'Put both on one map. Among whole industries, only mining and utilities are well paid and hiring fast, and together they hold just ' + aboutPct(pct(corner)) + ' of all jobs.',
         roll: { at: 'post', panes: [
                   { photo: sb.Q84.photo, label: 'Health care, ' + m(Q.wage) },
                   { clip: clip('cafe'), label: 'Hospitality, ' + m(Hh.wage) }],
@@ -197,15 +211,15 @@
           col('For a balance', 'Best balance', bal3, function (d) { return 3 * vis.length - score(d); }, function (d) { return m(d.wage) + ', ' + share(d.jobs); },
               'Best combined rank for pay, hiring and size')
         ],
-        say: 'For pay: ' + listOf(pay3) + ', all above $' + floorK + 'k, but together just ' + share(jobsOf(pay3)) + ' of jobs. For ways in: ' + listOf(ways3) + ', with ' + share(jobsOf(ways3)) + ' of all jobs between them. For a balance of pay, hiring and size: ' + listOf(bal3) + '.' },
+        say: 'For pay: ' + listOf(pay3) + ', all above $' + floorK + 'k, but together just ' + aboutPct(pct(jobsOf(pay3))) + ' of jobs. For ways in: ' + listOf(ways3) + ', with more than ' + fracW(pct(jobsOf(ways3))) + ' of all jobs between them. For a balance of pay, hiring and size: ' + listOf(bal3) + '.' },
 
       { act: 'IV', kind: 'chart', builder: 'jobTypeMap', state: { stage: 'corner' }, mood: 'growth',
         head: 'One level down, the corner fills up.',
-        say: 'Inside those industries are ' + D.subdivisions.length + ' job types. Here the well-paid, fast-hiring corner holds ' + jtCorner.length + ' of them and ' + V.fmt(jtJobs / 1000, 1) + ' million jobs: ' + share(jtJobs) + ' of all workers.' },
+        say: 'Inside those industries are ' + D.subdivisions.length + ' job types. Here the well-paid, fast-hiring corner holds ' + jtCorner.length + ' of them and almost ' + Math.round(jtJobs / 1000) + ' million jobs, ' + oneInN(pct(jtJobs)) + ' workers.' },
 
       { act: 'IV', kind: 'shortlist', mood: 'neutral', rows: shortlist,
         head: 'The strongest options in the corner.',
-        say: shortOf(byPay[0]) + ' pays the most, ' + m(byPay[0].wage) + '. ' + shortOf(byHire[0]) + ' hires fastest, up ' + p1(byHire[0].jobs5y) + ', ' + times(byHire[0].jobs5y, bj) + ' the average. ' + shortOf(bySize[0]) + ' is the biggest, with ' + share(bySize[0].jobs) + ' of all jobs. For our two people, fit decides: Mia\'s electrical degree points to ' + said(MIA_PICK) + ', and Alex\'s project skills to ' + said(ALEX_PICK) + '.' },
+        say: shortOf(byPay[0]) + ' pays the most, about ' + k$(byPay[0].wage) + '. ' + shortOf(byHire[0]) + ' hires fastest, up almost ' + fracW(byHire[0].jobs5y) + ' in five years, ' + timesW(byHire[0].jobs5y, bj) + ' the average. ' + shortOf(bySize[0]) + ' is the biggest, ' + oneInN(pct(bySize[0].jobs)) + ' jobs. For our two people, fit decides: Mia\'s electrical degree points to ' + said(MIA_PICK) + ', and Alex\'s project skills to ' + said(ALEX_PICK) + '.' },
 
       { act: 'IV', kind: 'chart', builder: 'jobTypeMap', mood: 'growth',
         state: { stage: 'focus', focus: [MIA_PICK.code, ALEX_PICK.code], names: nameOf },
@@ -225,7 +239,7 @@
           { who: 'alex', need: 'A raise, not a restart', quote: 'Same skills, a better-paid job type.',
             job: shortOf(ALEX_PICK), fig: m(ALEX_PICK.wage) + ', hiring ' + V.signed(ALEX_PICK.jobs5y, 1) }
         ],
-        say: 'So, Mia picks ' + said(MIA_PICK) + ' over ' + said(byPay[0]) + ': it uses her degree and is hiring faster. Alex stops waiting: project coordination carries over to roads and rail, where the average job pays ' + m(ALEX_PICK.wage) + ', ' + times(ALEX_PICK.wage, grew.wage) + ' health care\'s ' + m(grew.wage) + '.',
+        say: 'So, Mia picks ' + said(MIA_PICK) + ' over ' + said(byPay[0]) + ': it uses her degree and is hiring faster. Alex stops waiting: project coordination carries over to roads and rail, where the average job pays about ' + k$(ALEX_PICK.wage) + ', ' + timesW(ALEX_PICK.wage, grew.wage) + ' health care\'s ' + k$(grew.wage) + '.',
         roll: { at: 'post', panes: [{ clip: clip('crane'), label: '' }],
                 say: 'Same data. Different needs. Different decisions.' } },
 
@@ -239,7 +253,7 @@
           { when: 'Third,', t: 'For a raise, move to a better-paid job type.',
             d: 'Industry growth rarely lifts your pay: ' + grew.short.toLowerCase() + '\'s output grew ' + p1(grew.ivaGrowth) + ' in eighteen years, its real pay only ' + p1(grew.wageGrowth) + '. A move does: ' + said(ALEX_PICK) + ' pays ' + m(ALEX_PICK.wage) + ', ' + times(ALEX_PICK.wage, grew.wage) + ' ' + grew.short.toLowerCase() + '\'s ' + m(grew.wage) + '.' }
         ],
-        say: 'For anyone else, three rules. First, ask both questions: does it pay, and is it hiring? Mining pays ' + times(by.B.wage, bw) + ' the average, but holds only ' + share(by.B.jobs) + ' of jobs. Second, judge the job type, not the industry: inside ' + spread.d.short.toLowerCase() + ' alone, pay runs from ' + m(spread.lo) + ' to ' + m(spread.hi) + '. Third, for a raise, move to a better-paid job type instead of waiting: ' + grew.short.toLowerCase() + ' grew the most, yet its real pay barely moved, while ' + said(ALEX_PICK) + ' pays ' + times(ALEX_PICK.wage, grew.wage) + ' as much.' },
+        say: 'For anyone else, three rules. First, ask both questions: does it pay, and is it hiring? Mining pays ' + timesW(by.B.wage, bw) + ' the average, but holds ' + aboutPct(pct(by.B.jobs)) + ' of jobs. Second, judge the job type, not the industry: inside ' + spread.d.short.toLowerCase() + ' alone, pay runs from about ' + k$(spread.lo) + ' to ' + k$(spread.hi) + '. Third, for a raise, move to a better-paid job type instead of waiting: ' + grew.short.toLowerCase() + ' grew the most, yet its real pay barely moved, while ' + said(ALEX_PICK) + ' pays ' + timesW(ALEX_PICK.wage, grew.wage) + ' as much.' },
 
       { act: 'V', kind: 'end', bg: photo('office'), mood: 'answer',
         head: 'Now look up your own.',
@@ -258,10 +272,17 @@
       '<text x="60" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#0a0c10">' + letter + '</text>' +
       '</svg>';
   }
+  // Mia and Alex are played by two stock clips (magnific.com free videos), so
+  // the people have faces; the face crops are stills from the same clips
+  function face(w, size) {
+    return '<img class="fa f-face" src="' + w.face + '" alt="" width="' + size + '" height="' + size + '" style="--c:' + w.color + '">';
+  }
   var WHO = {
     mia: { name: 'Mia', color: MIA, letter: 'M', role: '22, graduating in electrical engineering',
+           face: 'assets/img_story/mia_face.jpg', clip: 'assets/clips/mia.mp4', pos: '34% 45%',
            need: 'Needs a first door', traits: ['Wants a job that uses her degree', 'Instinct: mining pays most'] },
     alex: { name: 'Alex', color: ALEX, letter: 'A', role: '34, project coordinator, private hospitals',
+            face: 'assets/img_story/alex_face.jpg', clip: 'assets/clips/alex.mp4', pos: '41% 50%',
             need: 'Needs a raise, not a restart', traits: ['Mortgage, two children', 'Told: wait, health care is booming'] }
   };
 
@@ -273,8 +294,10 @@
     if (s.kind === 'cast') {
       return '<div class="f-cast">' + ['mia', 'alex'].map(function (k, i) {
         var w = WHO[k];
-        return '<div class="f-castcard" style="--c:' + w.color + ';--d:' + (0.15 + i * 0.35) + 's">' + avatar(w.color, w.letter, 92) +
-          '<div><div class="f-name">' + w.name + '</div><div class="f-role">' + esc(w.role) + '</div>' +
+        // the face first, the facts below it; the clip starts when the voice reaches the person
+        return '<div class="f-castcard f-person2" data-when="' + w.name + ',' + '" style="--c:' + w.color + ';--d:' + (0.15 + i * 0.35) + 's">' +
+          '<figure class="f-castv"><video muted playsinline preload="auto" src="' + w.clip + '" style="object-position:' + w.pos + '"></video></figure>' +
+          '<div class="f-castmeta"><div class="f-name">' + w.name + '</div><div class="f-role">' + esc(w.role) + '</div>' +
           '<div class="f-need">' + esc(w.need) + '</div>' +
           '<ul class="f-traits">' + w.traits.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul></div></div>';
       }).join('') + '</div>';
@@ -316,7 +339,7 @@
     if (s.kind === 'decide') {
       return '<div class="f-cast">' + s.people.map(function (p, i) {
         var w = WHO[p.who];
-        return '<div class="f-castcard f-decide" style="--c:' + w.color + ';--d:' + (0.15 + i * 0.35) + 's">' + avatar(w.color, w.letter, 72) +
+        return '<div class="f-castcard f-decide" style="--c:' + w.color + ';--d:' + (0.15 + i * 0.35) + 's">' + face(w, 72) +
           '<div><div class="f-name">' + w.name + '</div><div class="f-need">' + esc(p.need) + '</div>' +
           '<p class="f-dec">"' + esc(p.quote) + '"</p>' +
           '<div class="f-job"><b>' + esc(p.job) + '</b><span>' + esc(p.fig) + '</span></div></div></div>';
@@ -344,7 +367,7 @@
     var clips = Object.keys(m.clips || {}).map(function (k) { return one(m.clips[k]); });
     return 'Data: ABS 8155.0, 2006-07 to 2024-25, in 2024-25 dollars. From Wikimedia Commons, photographs: ' +
       photos.join('; ') + '. Video: ' + clips.join('; ') +
-      '. Mia and Alex are composite personas from the Journal 3 empathy map.';
+      '. Mia and Alex are composite personas from the Journal 3 empathy map, played by two free stock clips from magnific.com.';
   }
 
   // ------------------------------------------------------------ parts
@@ -497,9 +520,14 @@
   }
   function playBg() {
     if (V.reduceMotion || !F.playing) return;
-    Array.prototype.forEach.call(F.bgv.querySelectorAll('video'), function (v) { var pr = v.play(); if (pr) pr.catch(function () {}); });
+    Array.prototype.forEach.call(F.el.querySelectorAll('.film-bgv video, .film-card .on video'), function (v) {
+      if (v.ended) return;
+      var pr = v.play(); if (pr) pr.catch(function () {});
+    });
   }
-  function pauseBg() { Array.prototype.forEach.call(F.bgv.querySelectorAll('video'), function (v) { v.pause(); }); }
+  function pauseBg() {
+    Array.prototype.forEach.call(F.el.querySelectorAll('.film-bgv video, .film-card video'), function (v) { v.pause(); });
+  }
 
   function sting(act) {
     var el = F.stingEl;
@@ -511,7 +539,8 @@
 
   // ------------------------------------------------------------ the player
   var F = { built: false, open: false, playing: false, i: 0, j: -1, parts: [], scenes: null,
-            chapters: null, audio: null, chart: null, gen: 0, t: null };
+            chapters: null, audio: null, chart: null, gen: 0, t: null,
+            present: false, notes: false, step: 0, phrases: [] };
 
   function ensure() {
     if (F.scenes) return;
@@ -527,6 +556,13 @@
     F.el = el;
     F.host = $('.film-chart', el);
     F.cutEl = $('.film-cut', el);
+    var dock = document.createElement('div');
+    dock.className = 'film-dock';
+    dock.setAttribute('aria-hidden', 'true');
+    dock.innerHTML = ['mia', 'alex'].map(function (k) {
+      return '<span class="fd" data-name="' + WHO[k].name + '" style="--c:' + WHO[k].color + '"><img src="' + WHO[k].face + '" alt=""><b>' + WHO[k].name + '</b></span>';
+    }).join('');
+    $('.film-bot', el).insertBefore(dock, $('.film-next', el));
     F.bgv = document.createElement('div');
     F.bgv.className = 'film-bgv';
     $('.film-bg', el).appendChild(F.bgv);
@@ -549,17 +585,29 @@
     });
     $('.film-close', el).addEventListener('click', close);
     $('.film-play', el).addEventListener('click', function () { F.playing ? pause() : resume(); });
-    $('.film-prev', el).addEventListener('click', function () { show(Math.max(0, F.i - 1), true); });
-    $('.film-next', el).addEventListener('click', function () { if (F.i < F.scenes.length - 1) show(F.i + 1, true); });
+    $('.film-prev', el).addEventListener('click', function () { if (F.present) back(); else show(Math.max(0, F.i - 1), true); });
+    $('.film-next', el).addEventListener('click', function () { if (F.present) advance(); else if (F.i < F.scenes.length - 1) show(F.i + 1, true); });
+    var hint = document.createElement('span');
+    hint.className = 'present-hint';
+    hint.textContent = 'Click or \u2192 to advance \u00b7 \u2190 back \u00b7 N notes';
+    $('.film-top', el).insertBefore(hint, $('.film-time', el));
     el.addEventListener('click', function (e) {
       var go = e.target.closest('[data-go]');
-      if (go) { close(); var t = $(go.getAttribute('data-go')); if (t) t.scrollIntoView({ behavior: 'smooth' }); }
-      if (e.target.closest('[data-replay]')) show(0, true);
+      if (go) { close(); var t = $(go.getAttribute('data-go')); if (t) t.scrollIntoView({ behavior: 'smooth' }); return; }
+      if (e.target.closest('[data-replay]')) { show(0, true); return; }
+      // presenting: a click anywhere on the picture is the next step; controls keep their own job
+      if (F.present && !e.target.closest('button, a, .film-bot, .film-top')) advance();
     });
     document.addEventListener('keydown', function (e) {
       if (!F.open) return;
-      if (e.key === 'Escape') close();
-      else if (e.key === ' ') { e.preventDefault(); F.playing ? pause() : resume(); }
+      if (e.key === 'Escape') { close(); return; }
+      if (F.present) {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown' || e.key === 'Enter') { e.preventDefault(); advance(); }
+        else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace') { e.preventDefault(); back(); }
+        else if (e.key === 'n' || e.key === 'N') { F.notes = !F.notes; F.el.classList.toggle('notes', F.notes); showNotes(); }
+        return;
+      }
+      if (e.key === ' ') { e.preventDefault(); F.playing ? pause() : resume(); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); if (F.i < F.scenes.length - 1) show(F.i + 1, true); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); show(Math.max(0, F.i - 1), true); }
     });
@@ -573,14 +621,22 @@
     }
   }
 
-  function open() {
+  /* present = the same scenes as slides for a speaker: no voice, no music, no
+     timers. Every click is one step: an act card, a footage shot, a slide, and
+     inside a slide each highlight the film would have lit with the voice (the
+     three rules, the three columns, Mia then Alex, the two picks). */
+  function open(present) {
     build();
     F.open = true;
+    F.present = present === true;
+    F.el.classList.toggle('present', F.present);
+    F.el.classList.toggle('notes', F.present && F.notes);
     F.el.classList.add('on');
     F.el.setAttribute('aria-hidden', 'false');
     document.body.classList.add('locked');
-    if (global.SFX) { global.SFX.open(); global.SFX.bedOpen('neutral'); }
-    F.playing = true;
+    if (global.SFX) { global.SFX.open(); if (!F.present) global.SFX.bedOpen('neutral'); }
+    F.el.classList.remove('ended');
+    setPlaying(true);
     // 10 Hz, not the media element's ~4 Hz timeupdate: a highlight a quarter
     // second late reads as lagging behind the voice
     F.tick = setInterval(function () { caption(); progress(); }, 100);
@@ -598,7 +654,9 @@
     pauseVideos();
     F.cutEl.classList.remove('on'); F.cutEl.innerHTML = '';
     F.bgv.innerHTML = ''; F.bgv.removeAttribute('data-k');
-    F.el.classList.remove('on', 'cutting', 'ended');
+    F.el.classList.remove('on', 'cutting', 'ended', 'present', 'notes');
+    var tip = F.host.querySelector('.tip');
+    if (tip) tip.classList.remove('on');
     F.stingEl.classList.remove('on');
     F.el.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('locked');
@@ -606,17 +664,23 @@
     F.scene.clear(); F.chart = null;
   }
 
+  function setPlaying(on) {
+    F.playing = on;
+    F.el.classList.toggle('paused', !on);
+    var b = $('.film-play', F.el);
+    if (b) b.setAttribute('aria-label', on ? 'Pause' : 'Play');
+  }
+
   function pause() {
-    F.playing = false;
+    setPlaying(false);
     holdT();
     F.audio.pause();
     pauseVideos();
     pauseBg();
-    F.el.classList.add('paused');
   }
   function resume() {
-    F.playing = true;
-    F.el.classList.remove('paused', 'ended');
+    setPlaying(true);
+    F.el.classList.remove('ended');
     if (F.j >= F.parts.length) { show(0, true); return; }
     if (F.parts[F.j] && F.parts[F.j].type === 'roll') playVideos();
     playBg();
@@ -637,7 +701,9 @@
     if (F.chart !== form) F.scene.clear();
     F.chart = form;
     F.scene.measure();
-    var marks = CH.builders[form]({ w: F.scene.w, h: F.scene.h, data: D, beat: state || {} });
+    if (F.present && !F.tips && global.TIPS) F.tips = global.TIPS(F.host);
+    var marks = CH.builders[form]({ w: F.scene.w, h: F.scene.h, data: D, beat: state || {},
+                                    tipHandlers: F.present ? F.tips : null });
     F.scene.render(marks, { dur: first ? 900 : 700, stagger: first ? 12 : 0 });
   }
 
@@ -665,7 +731,7 @@
     if (global.SFX && s.foley) global.SFX.foley(s.foley, 0.35);
   }
 
-  function show(i, user) {
+  function show(i, user, atEnd) {
     var s = F.scenes[i];
     F.gen++;
     var prev = F.i;
@@ -673,9 +739,10 @@
     clearT();
     F.audio.pause();
     F.el.classList.remove('ended');
-    if (user && !F.playing) { F.playing = true; F.el.classList.remove('paused'); }
+    if (user && !F.playing) setPlaying(true);
     if (user) { rollOff(); F.stingEl.classList.remove('on'); }
     F.parts = partsOf(i);
+    F.el.classList.toggle('nodock', i < 2);              // the dock appears once both are introduced
     F.el.style.setProperty('--who', '#3987e5');
     $('.film-act', F.el).textContent = 'Act ' + s.act + ' · ' + ACTS[s.act];
     preload(s);
@@ -683,14 +750,15 @@
       if (i !== prev && user) global.SFX.whoosh(i > prev ? 1 : -1);
       global.SFX.bedMood(s.mood || 'neutral', s.mood === 'answer');
     }
-    runPart(0, F.gen);
+    runPart(atEnd ? F.parts.length - 1 : 0, F.gen, atEnd);
   }
 
-  function runPart(j, gen) {
+  function runPart(j, gen, built) {
     if (gen !== F.gen) return;
     F.j = j;
     var s = F.scenes[F.i], p = F.parts[j];
     if (!p) { nextScene(gen); return; }
+    if (F.present) { presentPart(s, p, built); return; }
     var after = function () { if (gen === F.gen) runPart(j + 1, gen); };
     setCaption('');
     if (p.type === 'sting') {
@@ -729,13 +797,73 @@
     }
   }
 
+  // ------------------------------------------------------------ presenting
+  function presentPart(s, p, built) {
+    F.capParts = [];                                  // no voice, so no timed subtitles
+    F.cur = p;
+    var tp = F.host.querySelector('.tip');
+    if (tp) tp.classList.remove('on');
+    if (p.type === 'sting') {
+      sting(s.act);                                   // and it stays until the next click
+      $('.film-head h2', F.el).textContent = '';
+      $('.film-card', F.el).innerHTML = '';
+      F.phrases = []; F.step = 0;
+    } else {
+      F.stingEl.classList.remove('on');
+      if (p.type === 'roll') rollOn(s, CLIP_SEC);
+      else { frame(s); rollOff(); }
+      F.phrases = p.type === 'slide' ? stepsOf() : [];
+      F.step = built ? F.phrases.length : 0;
+    }
+    applySteps();
+    showNotes();
+    // the dock lights whoever this part is about
+    Array.prototype.forEach.call(F.el.querySelectorAll('.fd'), function (d) {
+      d.classList.toggle('on', !!p.say && p.say.indexOf(d.getAttribute('data-name')) >= 0);
+    });
+    progress();
+  }
+  // the highlight phrases of the slide on screen, in reading order
+  function stepsOf() {
+    var ph = [];
+    Array.prototype.forEach.call(F.el.querySelectorAll('.film-card [data-when], .film-card [data-dim-when]'), function (r) {
+      var w = r.getAttribute('data-when') || r.getAttribute('data-dim-when');
+      if (ph.indexOf(w) < 0) ph.push(w);
+    });
+    return ph;
+  }
+  function applySteps() {
+    Array.prototype.forEach.call(F.el.querySelectorAll('.film-card [data-when], .film-card [data-dim-when]'), function (r) {
+      var w = r.getAttribute('data-when') || r.getAttribute('data-dim-when');
+      light(r, F.phrases.indexOf(w) < F.step);
+    });
+  }
+  function light(r, lit) {
+    r.classList.toggle(r.hasAttribute('data-when') ? 'on' : 'off', lit);
+    var v = lit && F.playing && !V.reduceMotion && r.querySelector('video');
+    if (v && v.paused && !v.ended) { var pr = v.play(); if (pr) pr.catch(function () {}); }
+  }
+  function showNotes() {
+    if (F.present) setCaption(F.notes && F.cur && F.cur.say ? F.cur.say : '');
+  }
+  function advance() {
+    if (F.step < F.phrases.length) { F.step++; applySteps(); if (global.SFX) global.SFX.ui('toggle'); return; }
+    if (F.j < F.parts.length - 1) { if (global.SFX) global.SFX.whoosh(1); runPart(F.j + 1, F.gen); return; }
+    if (F.i < F.scenes.length - 1) show(F.i + 1, true);
+  }
+  function back() {
+    if (F.step > 0) { F.step--; applySteps(); return; }
+    if (F.j > 0) { runPart(F.j - 1, F.gen, true); return; }
+    if (F.i > 0) show(F.i - 1, true, true);
+  }
+
   function nextScene(gen) {
     if (gen !== F.gen) return;
     if (global.SFX) global.SFX.voice(false);
     if (F.i >= F.scenes.length - 1) {
       F.j = F.parts.length;
-      F.playing = false;
-      F.el.classList.add('paused', 'ended');
+      setPlaying(false);
+      F.el.classList.add('ended');
       progress();
       return;
     }
@@ -802,7 +930,14 @@
       Array.prototype.forEach.call(F.el.querySelectorAll('.film-card [data-when], .film-card [data-dim-when]'), function (r) {
         var phrase = r.getAttribute('data-when') || r.getAttribute('data-dim-when'), at = -1;
         parts.forEach(function (p, n) { if (at < 0 && p.indexOf(phrase) >= 0) at = n; });
-        r.classList.toggle(r.hasAttribute('data-when') ? 'on' : 'off', at >= 0 && k >= at);
+        var lit = at >= 0 && k >= at;
+        r.classList.toggle(r.hasAttribute('data-when') ? 'on' : 'off', lit);
+        var v = lit && F.playing && !V.reduceMotion && r.querySelector('video');
+        if (v && v.paused && !v.ended) { var pr = v.play(); if (pr) pr.catch(function () {}); }
+      });
+      // the persona dock: a face lights while the voice is talking about that person
+      Array.prototype.forEach.call(F.el.querySelectorAll('.fd'), function (d) {
+        d.classList.toggle('on', parts[k].indexOf(d.getAttribute('data-name')) >= 0);
       });
     }
   }
@@ -816,6 +951,15 @@
     if (F.j < ps.length) {
       if (F.t) cur += F.t.base + (F.t.total - (F.t.id ? Math.max(0, F.t.left - (performance.now() - F.t.at)) : F.t.left)) / 1000;
       else cur += F.audio.currentTime || 0;
+    }
+    if (F.present) {
+      $('.film-time', F.el).textContent = 'Scene ' + (F.i + 1) + ' / ' + F.scenes.length;
+      Array.prototype.forEach.call($('.film-segs', F.el).children, function (b, n) {
+        var f = n < F.i ? 1 : n > F.i ? 0 : (F.j + 1) / F.parts.length;
+        b.firstChild.style.width = (f * 100).toFixed(1) + '%';
+        b.classList.toggle('now', n === F.i);
+      });
+      return;
     }
     $('.film-time', F.el).textContent = clock(done + cur) + ' / ' + clock(duration());
     Array.prototype.forEach.call($('.film-segs', F.el).children, function (b, n) {
@@ -855,8 +999,11 @@
 
   function boot() {
     var len = duration();
+    Array.prototype.forEach.call(document.querySelectorAll('[data-present-open]'), function (b) {
+      b.addEventListener('click', function () { open(true); });
+    });
     Array.prototype.forEach.call(document.querySelectorAll('[data-film-open]'), function (b) {
-      b.addEventListener('click', open);
+      b.addEventListener('click', function () { open(false); });
       var t = b.querySelector('.film-len');
       if (t) t.textContent = clock(len);
     });
@@ -865,5 +1012,6 @@
   else boot();
 
   global.FILM = { open: open, close: close, lines: lines, duration: duration,
+                  present: function () { open(true); }, advance: advance, back: back,
                   scenes: function () { ensure(); return F.scenes; } };
 })(window);

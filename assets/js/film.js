@@ -7,8 +7,9 @@
  * finding concrete, and nowhere else:
  *   Mia, 22   finishing an engineering degree, no one depends on her. She
  *             needs a FIRST DOOR.
- *   Alex, 34  eight years coordinating projects, a mortgage, two children. He
- *             needs a BRIDGE.
+ *   Alex, 34  coordinates projects in medical and other health care services,
+ *             a mortgage, two children. He needs a RAISE without leaving
+ *             health care: private hospitals, the best-paid part of it.
  *
  * Rules it keeps:
  *   1. Every figure is interpolated from window.STORY, exactly like chapters.js,
@@ -81,10 +82,13 @@
 
     /* Mia, 22: graduating in electrical engineering; she will work as an
        engineer, the open question is where. Her instinct: mining, the top
-       salary. Alex, 34: coordinates projects for a private hospital group, on
-       about health care's average pay; told to wait for health care's boom to
-       lift his pay. Neither changes career: Mia picks among engineering job
-       types, Alex moves the skill he has to a better-paid one.
+       salary. Alex, 34: coordinates projects in medical and other health care
+       services ($52.5k), told to wait for health care's boom to lift his pay.
+       Neither changes career: Mia picks among engineering job types, Alex
+       moves to the best-paid job type of his own industry, private hospitals
+       ($74.8k). Every name is a job type in the data, nothing is inferred.
+       Hospitals hire more slowly than average, so the film says plainly that
+       Alex's pick is OUTSIDE the corner: he needs pay, not a door.
 
        The funnel, wide to narrow: pay alone -> hiring alone -> both, by
        industry -> three industries for three needs -> both, by job type ->
@@ -120,13 +124,15 @@
     var big = jtCorner.filter(function (s) { return s.jobs >= 50; });
     var byPay = top(big, 'wage'), byHire = top(big, 'jobs5y'), bySize = top(big, 'jobs');
     var nameOf = { E31: 'Heavy and civil engineering', D26: 'Electricity supply', B08: 'Metal ore mining',
-                   M69: 'Professional services', P80: 'Private schools', E30: 'Building construction' };
+                   M69: 'Professional services', P80: 'Private schools', E30: 'Building construction',
+                   Q84: 'Private hospitals', Q85: 'Medical and other health care' };
     var shortOf = function (s) { return nameOf[s.code] || s.name.replace(/ \(private\)$/, ''); };
     var said = function (s) { return shortOf(s).toLowerCase(); };
-    // the two our people pick, by FIT: Mia's electrical degree, Alex's project skills
-    var MIA_PICK = sb.D26, ALEX_PICK = sb.E31;
+    // the two picks, by FIT: Mia's electrical degree (a corner job type); Alex stays in
+    // health care and moves from where he is to its best-paid job type (outside the corner)
+    var MIA_PICK = sb.D26, ALEX_FROM = sb.Q85, ALEX_PICK = top(kids('Q'), 'wage')[0];
     var list = [];
-    [byPay[0], byPay[1], byHire[0], byHire[1], bySize[0], bySize[1], MIA_PICK, ALEX_PICK].forEach(function (s) {
+    [byPay[0], byPay[1], byHire[0], byHire[1], bySize[0], bySize[1], MIA_PICK].forEach(function (s) {
       if (list.indexOf(s) < 0) list.push(s);
     });
     var tagsOf = function (s) {
@@ -168,7 +174,7 @@
 
       { act: 'I', kind: 'cast', bg: photo('campus'), bgClips: [clip('students'), clip('hospital2')], mood: 'neutral',
         head: 'Two people, two different needs.',
-        say: 'Two people will test the usual advice. Mia, twenty-two, is graduating in electrical engineering; her instinct says mining, because it pays the most. Alex, thirty-four, coordinates projects for a private hospital group and has two children. He is told to wait: health care is booming, so the raise will come.' },
+        say: 'Two people will test the usual advice. Mia, twenty-two, is graduating in electrical engineering; her instinct says mining, because it pays the most. Alex, thirty-four, coordinates projects in medical and other health care, and has two children. He is told to wait: health care is booming, so the raise will come.' },
 
       // ---------------------------------------------------- II: where the pay is
       { act: 'II', kind: 'chart', chapter: 'pay', beat: 1, mood: 'neutral', foley: 'heavy',
@@ -197,7 +203,7 @@
         head: 'Well paid AND hiring: ' + share(corner) + ' of jobs.',
         say: 'Put both on one map. Among whole industries, only mining and utilities are well paid and hiring fast, and together they hold just ' + aboutPct(pct(corner)) + ' of all jobs.',
         roll: { at: 'post', panes: [
-                  { photo: sb.Q84.photo, label: 'Health care, ' + m(Q.wage) },
+                  { photo: ALEX_FROM.photo, label: 'Health care, ' + m(Q.wage) },
                   { clip: clip('cafe'), label: 'Hospitality, ' + m(Hh.wage) }],
                 say: 'Health care and hospitality hire the most, but both pay below the average wage.' } },
 
@@ -219,16 +225,16 @@
 
       { act: 'IV', kind: 'shortlist', mood: 'neutral', rows: shortlist,
         head: 'The strongest options in the corner.',
-        say: shortOf(byPay[0]) + ' pays the most, about ' + k$(byPay[0].wage) + '. ' + shortOf(byHire[0]) + ' hires fastest, up almost ' + fracW(byHire[0].jobs5y) + ' in five years, ' + timesW(byHire[0].jobs5y, bj) + ' the average. ' + shortOf(bySize[0]) + ' is the biggest, ' + oneInN(pct(bySize[0].jobs)) + ' jobs. For our two people, fit decides: Mia\'s electrical degree points to ' + said(MIA_PICK) + ', and Alex\'s project skills to ' + said(ALEX_PICK) + '.' },
+        say: shortOf(byPay[0]) + ' pays the most, about ' + k$(byPay[0].wage) + '. ' + shortOf(byHire[0]) + ' hires fastest, up almost ' + fracW(byHire[0].jobs5y) + ' in five years, ' + timesW(byHire[0].jobs5y, bj) + ' the average. ' + shortOf(bySize[0]) + ' is the biggest, ' + oneInN(pct(bySize[0].jobs)) + ' jobs. For Mia, fit decides: her electrical degree points to ' + said(MIA_PICK) + '. Alex\'s answer is not in this corner at all.' },
 
       { act: 'IV', kind: 'chart', builder: 'jobTypeMap', mood: 'growth',
-        state: { stage: 'focus', focus: [MIA_PICK.code, ALEX_PICK.code], names: nameOf },
+        state: { stage: 'focus', focus: [MIA_PICK.code], note: ALEX_PICK.code, names: nameOf },
         head: 'Their two picks, on the map.',
-        say: 'On the map, both sit high in the corner: well paid, and hiring fast.',
+        say: 'Mia\'s pick sits high in the corner. Alex\'s sits lower: ' + said(ALEX_PICK) + ' hire more slowly than average, but pay the most in health care. Alex already has a job; he needs the pay, not a door.',
         roll: { at: 'post', panes: [
-                  { clip: clip('civil'), label: shortOf(ALEX_PICK) + ', ' + m(ALEX_PICK.wage) },
+                  { photo: ALEX_PICK.photo, label: shortOf(ALEX_PICK) + ', ' + m(ALEX_PICK.wage) },
                   { clip: clip('power'), label: shortOf(MIA_PICK) + ', ' + m(MIA_PICK.wage) }],
-                say: 'Both are project-based, both are hiring, and both pay about twice the national average.' } },
+                say: 'Mia\'s job type pays ' + timesW(MIA_PICK.wage, bw) + ' the national average. Alex\'s pays ' + timesW(ALEX_PICK.wage, ALEX_FROM.wage) + ' the average where he works now.' } },
 
       // ---------------------------------------------------- V: what to do
       { act: 'V', kind: 'decide', bg: MIA_PICK.photo, mood: 'growth',
@@ -236,10 +242,10 @@
         people: [
           { who: 'mia', need: 'A first door', quote: 'Not the biggest salary. A door that is open.',
             job: shortOf(MIA_PICK), fig: m(MIA_PICK.wage) + ', hiring ' + V.signed(MIA_PICK.jobs5y, 1) },
-          { who: 'alex', need: 'A raise, not a restart', quote: 'Same skills, a better-paid job type.',
-            job: shortOf(ALEX_PICK), fig: m(ALEX_PICK.wage) + ', hiring ' + V.signed(ALEX_PICK.jobs5y, 1) }
+          { who: 'alex', need: 'A raise, not a restart', quote: 'Same industry, a better-paid job type.',
+            job: shortOf(ALEX_PICK), fig: m(ALEX_PICK.wage) + ', up from ' + m(ALEX_FROM.wage) }
         ],
-        say: 'So, Mia picks ' + said(MIA_PICK) + ' over ' + said(byPay[0]) + ': it uses her degree and is hiring faster. Alex stops waiting: project coordination carries over to roads and rail, where the average job pays about ' + k$(ALEX_PICK.wage) + ', ' + timesW(ALEX_PICK.wage, grew.wage) + ' health care\'s ' + k$(grew.wage) + '.',
+        say: 'So, Mia picks ' + said(MIA_PICK) + ' over ' + said(byPay[0]) + ': it uses her degree and is hiring faster. Alex stops waiting: he takes his project skills to ' + said(ALEX_PICK) + ', still in health care, where the average job pays about ' + k$(ALEX_PICK.wage) + ', against ' + k$(ALEX_FROM.wage) + ' where he works now.',
         roll: { at: 'post', panes: [{ clip: clip('crane'), label: '' }],
                 say: 'Same data. Different needs. Different decisions.' } },
 
@@ -251,9 +257,9 @@
           { when: 'Second,', t: 'Judge the job type, not the industry.',
             d: 'Inside ' + spread.d.short.toLowerCase() + ' alone, average pay runs from ' + m(spread.lo) + ' in ' + low(spread.loS) + ' to ' + m(spread.hi) + ' in ' + low(spread.hiS) + ', ' + times(spread.hi, spread.lo) + ' as much. The industry average hides both.' },
           { when: 'Third,', t: 'For a raise, move to a better-paid job type.',
-            d: 'Industry growth rarely lifts your pay: ' + grew.short.toLowerCase() + '\'s output grew ' + p1(grew.ivaGrowth) + ' in eighteen years, its real pay only ' + p1(grew.wageGrowth) + '. A move does: ' + said(ALEX_PICK) + ' pays ' + m(ALEX_PICK.wage) + ', ' + times(ALEX_PICK.wage, grew.wage) + ' ' + grew.short.toLowerCase() + '\'s ' + m(grew.wage) + '.' }
+            d: 'Industry growth rarely lifts your pay: ' + grew.short.toLowerCase() + '\'s output grew ' + p1(grew.ivaGrowth) + ' in eighteen years, its real pay only ' + p1(grew.wageGrowth) + '. A move does: inside it, ' + said(ALEX_PICK) + ' pay ' + m(ALEX_PICK.wage) + ', ' + low(ALEX_FROM) + ' ' + m(ALEX_FROM.wage) + '.' }
         ],
-        say: 'For anyone else, three rules. First, ask both questions: does it pay, and is it hiring? Mining pays ' + timesW(by.B.wage, bw) + ' the average, but holds ' + aboutPct(pct(by.B.jobs)) + ' of jobs. Second, judge the job type, not the industry: inside ' + spread.d.short.toLowerCase() + ' alone, pay runs from about ' + k$(spread.lo) + ' to ' + k$(spread.hi) + '. Third, for a raise, move to a better-paid job type instead of waiting: ' + grew.short.toLowerCase() + ' grew the most, yet its real pay barely moved, while ' + said(ALEX_PICK) + ' pays ' + timesW(ALEX_PICK.wage, grew.wage) + ' as much.' },
+        say: 'For anyone else, three rules. First, ask both questions: does it pay, and is it hiring? Mining pays ' + timesW(by.B.wage, bw) + ' the average, but holds ' + aboutPct(pct(by.B.jobs)) + ' of jobs. Second, judge the job type, not the industry: inside ' + spread.d.short.toLowerCase() + ' alone, pay runs from about ' + k$(spread.lo) + ' to ' + k$(spread.hi) + '. Third, for a raise, move to a better-paid job type instead of waiting: ' + grew.short.toLowerCase() + ' grew the most, yet its real pay barely moved, while inside it, ' + said(ALEX_PICK) + ' pay ' + timesW(ALEX_PICK.wage, ALEX_FROM.wage) + ' as much as ' + said(ALEX_FROM) + '.' },
 
       { act: 'V', kind: 'end', bg: photo('office'), mood: 'answer',
         head: 'Now look up your own.',
@@ -281,7 +287,7 @@
     mia: { name: 'Mia', color: MIA, letter: 'M', role: '22, graduating in electrical engineering',
            face: 'assets/img_story/mia_face.jpg', clip: 'assets/clips/mia.mp4', pos: '34% 45%',
            need: 'Needs a first door', traits: ['Wants a job that uses her degree', 'Instinct: mining pays most'] },
-    alex: { name: 'Alex', color: ALEX, letter: 'A', role: '34, project coordinator, private hospitals',
+    alex: { name: 'Alex', color: ALEX, letter: 'A', role: '34, project coordinator, medical and other health care',
             face: 'assets/img_story/alex_face.jpg', clip: 'assets/clips/alex.mp4', pos: '41% 50%',
             need: 'Needs a raise, not a restart', traits: ['Mortgage, two children', 'Told: wait, health care is booming'] }
   };

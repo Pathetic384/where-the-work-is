@@ -590,12 +590,19 @@
       b.addEventListener('click', function () { show(i, true); });
     });
     $('.film-close', el).addEventListener('click', close);
-    $('.film-play', el).addEventListener('click', function () { F.playing ? pause() : resume(); });
+    $('.film-fs', el).addEventListener('click', toggleFs);
+    // the browser can leave full screen on its own (Esc), so the button follows the event
+    document.addEventListener('fullscreenchange', function () {
+      var on = document.fullscreenElement === F.el;
+      F.el.classList.toggle('fs', on);
+      $('.film-fs', F.el).setAttribute('aria-label', on ? 'Exit full screen (F)' : 'Full screen (F)');
+    });
+    if (!F.el.requestFullscreen) $('.film-fs', el).hidden = true;   // iPhone Safari has none for elements.addEventListener('click', function () { F.playing ? pause() : resume(); });
     $('.film-prev', el).addEventListener('click', function () { if (F.present) back(); else show(Math.max(0, F.i - 1), true); });
     $('.film-next', el).addEventListener('click', function () { if (F.present) advance(); else if (F.i < F.scenes.length - 1) show(F.i + 1, true); });
     var hint = document.createElement('span');
     hint.className = 'present-hint';
-    hint.textContent = 'Click or \u2192 to advance \u00b7 \u2190 back \u00b7 N notes';
+    hint.textContent = 'Click or \u2192 to advance \u00b7 \u2190 back \u00b7 N notes \u00b7 F full screen';
     $('.film-top', el).insertBefore(hint, $('.film-time', el));
     el.addEventListener('click', function (e) {
       var go = e.target.closest('[data-go]');
@@ -607,6 +614,7 @@
     document.addEventListener('keydown', function (e) {
       if (!F.open) return;
       if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'f' || e.key === 'F') { toggleFs(); return; }
       if (F.present) {
         if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown' || e.key === 'Enter') { e.preventDefault(); advance(); }
         else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace') { e.preventDefault(); back(); }
@@ -650,8 +658,14 @@
     $('.film-close', F.el).focus({ preventScroll: true });
   }
 
+  function toggleFs() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+    else if (F.el.requestFullscreen) F.el.requestFullscreen().catch(function () {});
+  }
+
   function close() {
     if (!F.open) return;
+    if (document.fullscreenElement === F.el) document.exitFullscreen().catch(function () {});
     F.open = false;
     F.gen++;
     clearT();
